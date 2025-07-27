@@ -1,103 +1,85 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect } from "react";
+import { useUserStore } from "./lib/userStore";
+import { useUserData } from "./lib/useUserData";
+import Navigation from "./components/Navigation";
+import LoginForm from "./components/LoginForm";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { user, isLoading } = useUserStore();
+  const { getUserData } = useUserData();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  // 페이지 로드 시 사용자 상태 확인
+  useEffect(() => {
+    if (!user) {
+      getUserData();
+    }
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* 상단 식물 이미지 섹션 */}
+      <div className="w-full h-64 bg-amber-50 flex items-center justify-center">
+        <div className="w-80 h-48 bg-amber-100 p-2 rounded-lg shadow-lg">
+          <div className="w-full h-full bg-amber-50 rounded-md overflow-hidden">
+            <img
+              src="/plant-image.jpg"
+              alt="Plant Care"
+              className="w-full h-full object-cover"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {/* 메인 콘텐츠 섹션 */}
+      <div className="px-6 py-8 pb-24 flex flex-col items-center">
+        {isLoading ? (
+          // 로딩 상태
+          <div className="w-80">
+            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-3"></div>
+                <p className="text-gray-600 text-sm">⏳ 로딩 중...</p>
+              </div>
+            </div>
+          </div>
+        ) : user ? (
+          // 로그인된 상태 - 환영 메시지
+          <div className="w-80">
+            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🌱</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  환영합니다!
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Plant Care에 오신 것을 환영합니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          // 로그인되지 않은 상태
+          <div className="w-80">
+            {/* 타이틀 섹션 */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Welcome to Plant Care
+              </h1>
+              <p className="text-gray-600 text-base">
+                Your personal guide to nurturing
+              </p>
+              <p className="text-gray-600 text-base">your green companions.</p>
+            </div>
+            {/* 로그인 폼 */}
+            <LoginForm />
+          </div>
+        )}
+      </div>
+
+      {/* 하단 네비게이션 섹션 */}
+      <Navigation />
     </div>
   );
 }
