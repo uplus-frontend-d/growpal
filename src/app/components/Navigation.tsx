@@ -37,7 +37,7 @@ export default function Navigation() {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
       <div className="flex justify-around items-center">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/plants")}
           className="flex flex-col items-center space-y-1"
         >
           <svg
@@ -53,7 +53,7 @@ export default function Navigation() {
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
             />
           </svg>
-          <span className="text-xs text-gray-700">Home</span>
+          <span className="text-xs text-gray-700">Plants</span>
         </button>
         <button className="flex flex-col items-center space-y-1">
           <svg
@@ -71,7 +71,10 @@ export default function Navigation() {
           </svg>
           <span className="text-xs text-gray-700">Search</span>
         </button>
-        <button className="flex flex-col items-center space-y-1">
+        <button
+          onClick={() => router.push("/plants/add")}
+          className="flex flex-col items-center space-y-1"
+        >
           <svg
             className="w-6 h-6 text-gray-700"
             fill="none"

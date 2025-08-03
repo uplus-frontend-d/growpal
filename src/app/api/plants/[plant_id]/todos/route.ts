@@ -1,43 +1,44 @@
 import { supabase } from "@/app/lib/supabaseClient";
 import { NextRequest, NextResponse } from "next/server";
 import type {
-  GetPlantTasksRequest,
-  GetPlantTasksResponse,
-  CreatePlantTaskRequest,
-  CreatePlantTaskResponse,
+  GetPlantTodosRequest,
+  GetPlantTodosResponse,
+  CreatePlantTodoRequest,
+  CreatePlantTodoResponse,
 } from "@/lib/api";
 
-// 특정 식물의 작업 목록 조회
 export async function GET(
   req: NextRequest,
-  { params }: { params: GetPlantTasksRequest }
-): Promise<NextResponse<GetPlantTasksResponse | { error: string }>> {
-  const { plant_id } = params;
-
-  const { data, error } = await supabase
-    .from("plant_tasks")
-    .select("*")
-    .eq("plant_id", plant_id)
-    .order("due_date", { ascending: true }); // 마감일순 정렬
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  { params }: { params: Promise<GetPlantTodosRequest> }
+): Promise<NextResponse<GetPlantTodosResponse | { error: string }>> {
+  const { plant_id } = await params;
+  if (!plant_id) {
+    return NextResponse.json(
+      { error: "plant_id is required" },
+      { status: 400 }
+    );
   }
 
+  const { data, error } = await supabase
+    .from("plant_todos")
+    .select("*")
+    .eq("plant_id", plant_id)
+    .order("due_date", { ascending: true });
+
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 200 });
 }
 
-// 식물 작업 등록하기
 export async function POST(
   req: NextRequest,
-  { params }: { params: GetPlantTasksRequest }
-): Promise<NextResponse<CreatePlantTaskResponse | { error: string }>> {
+  { params }: { params: Promise<GetPlantTodosRequest> }
+): Promise<NextResponse<CreatePlantTodoResponse | { error: string }>> {
   try {
-    const { plant_id } = params;
-    const body: CreatePlantTaskRequest = await req.json();
-    const { task_type, due_date, icon } = body;
+    const { plant_id } = await params;
+    const body: CreatePlantTodoRequest = await req.json();
+    const { task_type, due_date } = body;
 
-    // 필수 필드 검증
     if (!task_type || !due_date) {
       return NextResponse.json(
         { error: "task_type and due_date are required" },
@@ -54,14 +55,17 @@ export async function POST(
       );
     }
 
+    const now = new Date().toISOString();
+
     const { data, error } = await supabase
-      .from("plant_tasks")
+      .from("plant_todos")
       .insert({
         plant_id,
         task_type,
         due_date,
-        is_done: false, // 기본값: 미완료
-        icon: icon || "📝", // 기본 아이콘
+        is_done: false,
+        executed_at: null,
+        created_at: now,
       })
       .select()
       .single();

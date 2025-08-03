@@ -20,6 +20,9 @@ export interface Plant {
   location: string;
   last_watered_at: string;
   image_url: string;
+  adopted_at: string; // YYYY-MM-DD 형식
+  growth_status: string;
+  species: string;
 }
 
 export type GetUserPlantsResponse = Plant[];
@@ -29,6 +32,9 @@ export interface CreatePlantRequest {
   name: string;
   location: string;
   image_url?: string;
+  adopted_at?: string; // YYYY-MM-DD 형식
+  growth_status?: string;
+  species?: string;
 }
 
 export interface CreatePlantResponse {
@@ -45,6 +51,9 @@ export interface UpdatePlantRequest {
   name?: string;
   location?: string;
   image_url?: string;
+  adopted_at?: string; // YYYY-MM-DD 형식
+  growth_status?: string;
+  species?: string;
 }
 
 export interface UpdatePlantResponse {
@@ -65,10 +74,10 @@ export interface DeletePlantResponse {
 }
 
 // ============================================================================
-// PLANT LOGS API 타입 정의
+// PLANT DIARIES API 타입 정의 (기존 PLANT LOGS에서 변경)
 // ============================================================================
 
-export interface PlantLog {
+export interface PlantDiary {
   id: string;
   plant_id: string;
   image_url: string;
@@ -76,19 +85,19 @@ export interface PlantLog {
   created_at: string;
 }
 
-export interface GetPlantLogsRequest {
+export interface GetPlantDiariesRequest {
   plant_id: string;
 }
 
-export type GetPlantLogsResponse = PlantLog[];
+export type GetPlantDiariesResponse = PlantDiary[];
 
-export interface CreatePlantLogRequest {
+export interface CreatePlantDiaryRequest {
   plant_id: string;
   image_url?: string;
   note: string;
 }
 
-export interface CreatePlantLogResponse {
+export interface CreatePlantDiaryResponse {
   id: string;
   plant_id: string;
   image_url: string;
@@ -96,13 +105,13 @@ export interface CreatePlantLogResponse {
   created_at: string;
 }
 
-export interface UpdatePlantLogRequest {
-  log_id: string;
+export interface UpdatePlantDiaryRequest {
+  diary_id: string;
   image_url?: string;
   note?: string;
 }
 
-export interface UpdatePlantLogResponse {
+export interface UpdatePlantDiaryResponse {
   id: string;
   plant_id: string;
   image_url: string;
@@ -110,81 +119,83 @@ export interface UpdatePlantLogResponse {
   created_at: string;
 }
 
-export interface DeletePlantLogRequest {
-  log_id: string;
+export interface DeletePlantDiaryRequest {
+  diary_id: string;
 }
 
-export interface DeletePlantLogResponse {
+export interface DeletePlantDiaryResponse {
   message: string;
 }
 
 // ============================================================================
-// PLANT TASKS API 타입 정의
+// PLANT TODOS API 타입 정의 (기존 PLANT TASKS에서 변경)
 // ============================================================================
 
-export interface PlantTask {
+export interface PlantTodo {
   id: string;
   plant_id: string;
   task_type: string;
   due_date: string; // YYYY-MM-DD 형식
   is_done: boolean;
-  icon: string;
+  executed_at: string; // ISO8601 문자열
+  created_at: string; // ISO8601 문자열
 }
 
-export interface GetPlantTasksRequest {
+export interface GetPlantTodosRequest {
   plant_id: string;
 }
 
-export type GetPlantTasksResponse = PlantTask[];
+export type GetPlantTodosResponse = PlantTodo[];
 
-export interface GetUserTasksRequest {
+export interface GetUserTodosRequest {
   user_id: string;
 }
 
-export type GetUserTasksResponse = PlantTask[];
+export type GetUserTodosResponse = PlantTodo[];
 
-export interface GetUserTasksByDateRequest {
+export interface GetUserTodosByDateRequest {
   user_id: string;
   from_date: string; // YYYY-MM-DD 형식
 }
 
-export type GetUserTasksByDateResponse = PlantTask[];
+export type GetUserTodosByDateResponse = PlantTodo[];
 
-export interface CreatePlantTaskRequest {
+export interface CreatePlantTodoRequest {
   plant_id: string;
   task_type: string;
   due_date: string; // YYYY-MM-DD 형식
-  icon?: string;
 }
 
-export interface CreatePlantTaskResponse {
+export interface CreatePlantTodoResponse {
   id: string;
   plant_id: string;
   task_type: string;
   due_date: string;
   is_done: boolean;
-  icon: string;
+  executed_at: string;
+  created_at: string;
 }
 
-export interface UpdatePlantTaskRequest {
-  task_id: string;
+export interface UpdatePlantTodoRequest {
+  todo_id: string;
   is_done: boolean;
 }
 
-export interface UpdatePlantTaskResponse {
+export interface UpdatePlantTodoResponse {
   id: string;
   plant_id: string;
   task_type: string;
   due_date: string;
   is_done: boolean;
-  icon: string;
+  executed_at: string;
+  created_at: string;
 }
 
-export interface DeletePlantTaskRequest {
-  task_id: string;
+export interface DeletePlantTodoRequest {
+  todo_id: string;
 }
 
-export interface DeletePlantTaskResponse {
+export interface DeletePlantTodoResponse {
   message: string;
 }
 
@@ -259,10 +270,30 @@ export interface LogoutResponse {
 export async function getUserPlants(
   userId: string
 ): Promise<GetUserPlantsResponse> {
-  const response = await fetch(`/api/users/${userId}/plants`);
+  const response = await fetch(`/api/plants?user_id=${userId}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch plants: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * 특정 식물 정보 조회
+ *
+ * 사용법:
+ * const plant = await getPlant('plant-id-here');
+ *
+ * 타입:
+ * - 파라미터: plantId (string)
+ * - 반환값: Plant (식물 정보)
+ */
+export async function getPlant(plantId: string): Promise<Plant> {
+  const response = await fetch(`/api/plants/${plantId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch plant: ${response.statusText}`);
   }
 
   return response.json();
@@ -383,26 +414,26 @@ export async function deletePlant(
 }
 
 // ============================================================================
-// PLANT LOGS API 함수들
+// PLANT DIARIES API 함수들
 // ============================================================================
 
 /**
  * 특정 식물의 활동 로그 조회
  *
  * 사용법:
- * const logs = await getPlantLogs('plant-id');
+ * const logs = await getPlantDiaries('plant-id');
  *
  * 타입:
  * - 파라미터: plantId (string)
- * - 반환값: PlantLog[] (로그 목록 배열, 최신순 정렬)
+ * - 반환값: PlantDiary[] (로그 목록 배열, 최신순 정렬)
  */
-export async function getPlantLogs(
+export async function getPlantDiaries(
   plantId: string
-): Promise<GetPlantLogsResponse> {
-  const response = await fetch(`/api/plants/${plantId}/logs`);
+): Promise<GetPlantDiariesResponse> {
+  const response = await fetch(`/api/plants/${plantId}/diaries`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch plant logs: ${response.statusText}`);
+    throw new Error(`Failed to fetch plant diaries: ${response.statusText}`);
   }
 
   return response.json();
@@ -412,27 +443,27 @@ export async function getPlantLogs(
  * 식물 활동 로그 등록
  *
  * 사용법:
- * const newLog = await createPlantLog('plant-id', {
+ * const newLog = await createPlantDiary('plant-id', {
  *   note: '오늘 물을 주었습니다!',
  *   image_url: 'https://example.com/photo.jpg'  // 선택사항
  * });
  *
  * 타입:
- * - 파라미터: plantId (string), data (Omit<CreatePlantLogRequest, 'plant_id'>)
- * - 반환값: CreatePlantLogResponse (생성된 로그 정보)
+ * - 파라미터: plantId (string), data (Omit<CreatePlantDiaryRequest, 'plant_id'>)
+ * - 반환값: CreatePlantDiaryResponse (생성된 로그 정보)
  */
-export async function createPlantLog(
+export async function createPlantDiary(
   plantId: string,
-  data: Omit<CreatePlantLogRequest, "plant_id">
-): Promise<CreatePlantLogResponse> {
-  const response = await fetch(`/api/plants/${plantId}/logs`, {
+  data: Omit<CreatePlantDiaryRequest, "plant_id">
+): Promise<CreatePlantDiaryResponse> {
+  const response = await fetch(`/api/plants/${plantId}/diaries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create plant log: ${response.statusText}`);
+    throw new Error(`Failed to create plant diary: ${response.statusText}`);
   }
 
   return response.json();
@@ -442,28 +473,28 @@ export async function createPlantLog(
  * 식물 활동 로그 수정 (전체 교체)
  *
  * 사용법:
- * const updatedLog = await updatePlantLog('plant-id', 'log-id', {
+ * const updatedLog = await updatePlantDiary('plant-id', 'log-id', {
  *   note: '새로운 메모',
  *   image_url: '새로운 이미지'
  * });
  *
  * 타입:
- * - 파라미터: plantId (string), logId (string), data (Omit<UpdatePlantLogRequest, 'log_id'>)
- * - 반환값: UpdatePlantLogResponse (수정된 로그 정보)
+ * - 파라미터: plantId (string), logId (string), data (Omit<UpdatePlantDiaryRequest, 'diary_id'>)
+ * - 반환값: UpdatePlantDiaryResponse (수정된 로그 정보)
  */
-export async function updatePlantLog(
+export async function updatePlantDiary(
   plantId: string,
-  logId: string,
-  data: Omit<UpdatePlantLogRequest, "log_id">
-): Promise<UpdatePlantLogResponse> {
-  const response = await fetch(`/api/plants/${plantId}/logs/${logId}`, {
+  diaryId: string,
+  data: Omit<UpdatePlantDiaryRequest, "diary_id">
+): Promise<UpdatePlantDiaryResponse> {
+  const response = await fetch(`/api/plants/${plantId}/diaries/${diaryId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to update plant log: ${response.statusText}`);
+    throw new Error(`Failed to update plant diary: ${response.statusText}`);
   }
 
   return response.json();
@@ -473,27 +504,27 @@ export async function updatePlantLog(
  * 식물 활동 로그 부분 수정
  *
  * 사용법:
- * const updatedLog = await patchPlantLog('plant-id', 'log-id', {
+ * const updatedLog = await patchPlantDiary('plant-id', 'log-id', {
  *   note: '수정된 메모'  // 이 필드만 수정
  * });
  *
  * 타입:
- * - 파라미터: plantId (string), logId (string), data (Omit<UpdatePlantLogRequest, 'log_id'>)
- * - 반환값: UpdatePlantLogResponse (수정된 로그 정보)
+ * - 파라미터: plantId (string), logId (string), data (Omit<UpdatePlantDiaryRequest, 'diary_id'>)
+ * - 반환값: UpdatePlantDiaryResponse (수정된 로그 정보)
  */
-export async function patchPlantLog(
+export async function patchPlantDiary(
   plantId: string,
-  logId: string,
-  data: Omit<UpdatePlantLogRequest, "log_id">
-): Promise<UpdatePlantLogResponse> {
-  const response = await fetch(`/api/plants/${plantId}/logs/${logId}`, {
+  diaryId: string,
+  data: Omit<UpdatePlantDiaryRequest, "diary_id">
+): Promise<UpdatePlantDiaryResponse> {
+  const response = await fetch(`/api/plants/${plantId}/diaries/${diaryId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to patch plant log: ${response.statusText}`);
+    throw new Error(`Failed to patch plant diary: ${response.statusText}`);
   }
 
   return response.json();
@@ -503,48 +534,48 @@ export async function patchPlantLog(
  * 식물 활동 로그 삭제
  *
  * 사용법:
- * await deletePlantLog('plant-id', 'log-id');
+ * await deletePlantDiary('plant-id', 'log-id');
  *
  * 타입:
  * - 파라미터: plantId (string), logId (string)
- * - 반환값: DeletePlantLogResponse { message: string }
+ * - 반환값: DeletePlantDiaryResponse { message: string }
  */
-export async function deletePlantLog(
+export async function deletePlantDiary(
   plantId: string,
-  logId: string
-): Promise<DeletePlantLogResponse> {
-  const response = await fetch(`/api/plants/${plantId}/logs/${logId}`, {
+  diaryId: string
+): Promise<DeletePlantDiaryResponse> {
+  const response = await fetch(`/api/plants/${plantId}/diaries/${diaryId}`, {
     method: "DELETE",
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to delete plant log: ${response.statusText}`);
+    throw new Error(`Failed to delete plant diary: ${response.statusText}`);
   }
 
   return response.json();
 }
 
 // ============================================================================
-// PLANT TASKS API 함수들
+// PLANT TODOS API 함수들
 // ============================================================================
 
 /**
  * 특정 식물의 작업 목록 조회
  *
  * 사용법:
- * const tasks = await getPlantTasks('plant-id');
+ * const tasks = await getPlantTodos('plant-id');
  *
  * 타입:
  * - 파라미터: plantId (string)
- * - 반환값: PlantTask[] (작업 목록 배열)
+ * - 반환값: PlantTodo[] (작업 목록 배열)
  */
-export async function getPlantTasks(
+export async function getPlantTodos(
   plantId: string
-): Promise<GetPlantTasksResponse> {
-  const response = await fetch(`/api/plants/${plantId}/tasks`);
+): Promise<GetPlantTodosResponse> {
+  const response = await fetch(`/api/plants/${plantId}/todos`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch plant tasks: ${response.statusText}`);
+    throw new Error(`Failed to fetch plant todos: ${response.statusText}`);
   }
 
   return response.json();
@@ -554,19 +585,19 @@ export async function getPlantTasks(
  * 특정 유저의 모든 작업 목록 조회
  *
  * 사용법:
- * const tasks = await getUserTasks('user-id');
+ * const tasks = await getUserTodos('user-id');
  *
  * 타입:
  * - 파라미터: userId (string)
- * - 반환값: PlantTask[] (유저의 모든 작업 목록 배열)
+ * - 반환값: PlantTodo[] (유저의 모든 작업 목록 배열)
  */
-export async function getUserTasks(
+export async function getUserTodos(
   userId: string
-): Promise<GetUserTasksResponse> {
-  const response = await fetch(`/api/users/${userId}/tasks`);
+): Promise<GetUserTodosResponse> {
+  const response = await fetch(`/api/users/${userId}/todos`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch user tasks: ${response.statusText}`);
+    throw new Error(`Failed to fetch user todos: ${response.statusText}`);
   }
 
   return response.json();
@@ -576,22 +607,22 @@ export async function getUserTasks(
  * 특정 유저의 특정 날짜 이후 작업 목록 조회
  *
  * 사용법:
- * const tasks = await getUserTasksByDate('user-id', '2024-01-01');
+ * const tasks = await getUserTodosByDate('user-id', '2024-01-01');
  *
  * 타입:
  * - 파라미터: userId (string), fromDate (string)
- * - 반환값: PlantTask[] (특정 날짜 이후 작업 목록 배열)
+ * - 반환값: PlantTodo[] (특정 날짜 이후 작업 목록 배열)
  */
-export async function getUserTasksByDate(
-  data: GetUserTasksByDateRequest
-): Promise<GetUserTasksByDateResponse> {
+export async function getUserTodosByDate(
+  data: GetUserTodosByDateRequest
+): Promise<GetUserTodosByDateResponse> {
   const response = await fetch(
-    `/api/users/${data.user_id}/tasks/date?from_date=${data.from_date}`
+    `/api/users/${data.user_id}/todos/date?from_date=${data.from_date}`
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch user tasks by date: ${response.statusText}`
+      `Failed to fetch user todos by date: ${response.statusText}`
     );
   }
 
@@ -602,28 +633,27 @@ export async function getUserTasksByDate(
  * 식물 작업 등록
  *
  * 사용법:
- * const newTask = await createPlantTask('plant-id', {
+ * const newTask = await createPlantTodo('plant-id', {
  *   task_type: '물주기',
  *   due_date: '2024-01-15',
- *   icon: '💧'  // 선택사항
  * });
  *
  * 타입:
- * - 파라미터: plantId (string), data (Omit<CreatePlantTaskRequest, 'plant_id'>)
- * - 반환값: CreatePlantTaskResponse (생성된 작업 정보)
+ * - 파라미터: plantId (string), data (Omit<CreatePlantTodoRequest, 'plant_id'>)
+ * - 반환값: CreatePlantTodoResponse (생성된 작업 정보)
  */
-export async function createPlantTask(
+export async function createPlantTodo(
   plantId: string,
-  data: Omit<CreatePlantTaskRequest, "plant_id">
-): Promise<CreatePlantTaskResponse> {
-  const response = await fetch(`/api/plants/${plantId}/tasks`, {
+  data: Omit<CreatePlantTodoRequest, "plant_id">
+): Promise<CreatePlantTodoResponse> {
+  const response = await fetch(`/api/plants/${plantId}/todos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create plant task: ${response.statusText}`);
+    throw new Error(`Failed to create plant todo: ${response.statusText}`);
   }
 
   return response.json();
@@ -633,27 +663,27 @@ export async function createPlantTask(
  * 식물 작업 완료 상태 수정
  *
  * 사용법:
- * const updatedTask = await updatePlantTask('plant-id', 'task-id', {
+ * const updatedTask = await updatePlantTodo('plant-id', 'task-id', {
  *   is_done: true  // 완료 상태로 변경
  * });
  *
  * 타입:
- * - 파라미터: plantId (string), taskId (string), data (Omit<UpdatePlantTaskRequest, 'task_id'>)
- * - 반환값: UpdatePlantTaskResponse (수정된 작업 정보)
+ * - 파라미터: plantId (string), taskId (string), data (Omit<UpdatePlantTodoRequest, 'todo_id'>)
+ * - 반환값: UpdatePlantTodoResponse (수정된 작업 정보)
  */
-export async function updatePlantTask(
+export async function updatePlantTodo(
   plantId: string,
-  taskId: string,
-  data: Omit<UpdatePlantTaskRequest, "task_id">
-): Promise<UpdatePlantTaskResponse> {
-  const response = await fetch(`/api/plants/${plantId}/tasks/${taskId}`, {
+  todoId: string,
+  data: Omit<UpdatePlantTodoRequest, "todo_id">
+): Promise<UpdatePlantTodoResponse> {
+  const response = await fetch(`/api/plants/${plantId}/todos/${todoId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to update plant task: ${response.statusText}`);
+    throw new Error(`Failed to update plant todo: ${response.statusText}`);
   }
 
   return response.json();
@@ -663,22 +693,66 @@ export async function updatePlantTask(
  * 식물 작업 삭제
  *
  * 사용법:
- * await deletePlantTask('plant-id', 'task-id');
+ * await deletePlantTodo('plant-id', 'task-id');
  *
  * 타입:
  * - 파라미터: plantId (string), taskId (string)
- * - 반환값: DeletePlantTaskResponse { message: string }
+ * - 반환값: DeletePlantTodoResponse { message: string }
  */
-export async function deletePlantTask(
+export async function deletePlantTodo(
   plantId: string,
-  taskId: string
-): Promise<DeletePlantTaskResponse> {
-  const response = await fetch(`/api/plants/${plantId}/tasks/${taskId}`, {
+  todoId: string
+): Promise<DeletePlantTodoResponse> {
+  const response = await fetch(`/api/plants/${plantId}/todos/${todoId}`, {
     method: "DELETE",
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to delete plant task: ${response.statusText}`);
+    throw new Error(`Failed to delete plant todo: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ============================================================================
+// UPLOAD API 타입 정의
+// ============================================================================
+
+export interface UploadImageRequest {
+  file: File;
+}
+
+export interface UploadImageResponse {
+  success: boolean;
+  fileName: string;
+  message: string;
+}
+
+// ============================================================================
+// UPLOAD API 함수들
+// ============================================================================
+
+/**
+ * 이미지 업로드
+ *
+ * 사용법:
+ * const result = await uploadImage(file);
+ *
+ * 타입:
+ * - 파라미터: file (File) - 업로드할 이미지 파일
+ * - 반환값: UploadImageResponse { success, fileName, message }
+ */
+export async function uploadImage(file: File): Promise<UploadImageResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload image: ${response.statusText}`);
   }
 
   return response.json();

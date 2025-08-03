@@ -1,52 +1,52 @@
 import { supabase } from "@/app/lib/supabaseClient";
 import { NextRequest, NextResponse } from "next/server";
 import type {
-  GetPlantLogsRequest,
-  GetPlantLogsResponse,
-  CreatePlantLogRequest,
-  CreatePlantLogResponse,
+  GetPlantDiariesRequest,
+  GetPlantDiariesResponse,
+  CreatePlantDiaryRequest,
+  CreatePlantDiaryResponse,
 } from "@/lib/api";
 
-// 특정 식물의 활동 로그 전체 조회
 export async function GET(
   req: NextRequest,
-  { params }: { params: GetPlantLogsRequest }
-): Promise<NextResponse<GetPlantLogsResponse | { error: string }>> {
-  const { plant_id } = params;
-
-  const { data, error } = await supabase
-    .from("plant_logs")
-    .select("*")
-    .eq("plant_id", plant_id)
-    .order("created_at", { ascending: false }); // 최신순 정렬
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  { params }: { params: Promise<GetPlantDiariesRequest> }
+): Promise<NextResponse<GetPlantDiariesResponse | { error: string }>> {
+  const { plant_id } = await params;
+  if (!plant_id) {
+    return NextResponse.json(
+      { error: "plant_id is required" },
+      { status: 400 }
+    );
   }
 
+  const { data, error } = await supabase
+    .from("plant_diaries")
+    .select("*")
+    .eq("plant_id", plant_id)
+    .order("created_at", { ascending: false });
+
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 200 });
 }
 
-// 식물 활동 로그 등록하기
 export async function POST(
   req: NextRequest,
-  { params }: { params: GetPlantLogsRequest }
-): Promise<NextResponse<CreatePlantLogResponse | { error: string }>> {
+  { params }: { params: Promise<GetPlantDiariesRequest> }
+): Promise<NextResponse<CreatePlantDiaryResponse | { error: string }>> {
   try {
-    const { plant_id } = params;
-    const body: CreatePlantLogRequest = await req.json();
+    const { plant_id } = await params;
+    const body: CreatePlantDiaryRequest = await req.json();
     const { image_url, note } = body;
 
-    // 필수 필드 검증
     if (!note) {
       return NextResponse.json({ error: "note is required" }, { status: 400 });
     }
 
-    // 현재 시간을 created_at으로 설정
     const now = new Date().toISOString();
 
     const { data, error } = await supabase
-      .from("plant_logs")
+      .from("plant_diaries")
       .insert({
         plant_id,
         image_url: image_url || null,
