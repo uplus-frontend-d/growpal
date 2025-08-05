@@ -11,7 +11,7 @@ export default function PlantsPage() {
   const { user } = useUserStore();
 
   // 실제 로그인한 사용자 ID 사용 (없으면 테스트용 UUID)
-  const userId = user?.id || "00000000-0000-0000-0000-000000000000";
+  // const userId = user?.id || "00000000-0000-0000-0000-000000000000";
 
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export default function PlantsPage() {
   const loadPlants = async () => {
     try {
       setLoading(true);
-      const data = await getUserPlants(userId);
+      const data = await getUserPlants(user?.id);
       setPlants(data);
       setError(null);
     } catch (err) {
@@ -42,8 +42,10 @@ export default function PlantsPage() {
   };
 
   useEffect(() => {
-    loadPlants();
-  }, [userId]);
+    if (user?.id) {
+      loadPlants();
+    }
+  }, [user?.id]);
 
   // 식물 삭제 처리
   const handleDeletePlant = async () => {

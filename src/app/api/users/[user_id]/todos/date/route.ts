@@ -7,9 +7,9 @@ import type {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: GetUserTodosByDateRequest }
+  context: { params: GetUserTodosByDateRequest }
 ): Promise<NextResponse<GetUserTodosByDateResponse | { error: string }>> {
-  const { user_id } = params;
+  const { user_id } = await context.params;
   const { searchParams } = new URL(req.url);
   const from_date = searchParams.get("from_date");
 
@@ -52,5 +52,6 @@ export async function GET(
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
   return NextResponse.json(data, { status: 200 });
 }
