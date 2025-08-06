@@ -2,52 +2,102 @@
 
 import React, { useEffect, useState } from "react";
 import { formatDateRange } from "little-date";
-import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import PrivateRoute from "../components/PrivateRoute";
 import Navigation from "../components/Navigation";
-import { getUserTodos, getUserTodosByDate } from "@/lib/api";
+import { getUserActivities } from "@/lib/api";
 import { useUserStore } from "../lib/userStore";
 import { formatDateToYMD } from "@/lib/dateUtil";
 import AddTodoModal from "../components/AddTodoModal";
+import { Activity, useActivityStore } from "../stores/activityStore";
+
+// 아이콘 맵
+const taskTypeImageMap: Record<string, string> = {
+  watering: "/images/tasks/watering.png",
+  repotting: "/images/tasks/repotting.png",
+  fertilizing: "/images/tasks/fertilizing.png",
+  etc: "/images/tasks/etc.png",
+  diary: "/images/tasks/diary.png",
+};
 
 const CalendarPage = () => {
   const { user } = useUserStore();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [todayActivities, setTodayActivities] = useState<Activity[]>([]);
+  const { activities, setActivities } = useActivityStore();
 
-  const [events, setEvents] = useState([]);
-
+  // 날짜 선택
   const handleSelectDate = async (selectedDate: Date | undefined) => {
     if (!selectedDate || !user?.id) return;
-
-    console.log(formatDateToYMD(selectedDate));
     setDate(selectedDate);
+    setTodayActivities(getActivitiesByDate(selectedDate));
+  };
 
-    const response = await getUserTodosByDate({
-      user_id: user?.id,
-      from_date: formatDateToYMD(selectedDate),
-    });
-    setEvents(response);
+  const getActivitiesByDate = (target: Date) => {
+    const dateStr = formatDateToYMD(target);
+    return activities.filter(
+      (activity) =>
+        (activity.type === "diary" &&
+          activity.created_at?.slice(0, 10) === dateStr) ||
+        (activity.type === "todo" && activity.due_date === dateStr)
+    );
   };
 
   useEffect(() => {
+    if (!date) return;
+    setTodayActivities(getActivitiesByDate(date));
+  }, [activities, date]);
+
+  // 초기 로딩: 오늘 날짜
+  useEffect(() => {
+    if (!user?.id) return;
     const init = async () => {
-      const today = formatDateToYMD(new Date());
-      console.log(today);
-      const response = await getUserTodosByDate({
-        user_id: user?.id,
-        from_date: today,
-      });
-      setEvents(response);
-      console.log("response:", response);
+      const todayStr = formatDateToYMD(new Date());
+      const { todos, diaries } = await getUserActivities(user.id);
+
+      const todoItems: Activity[] = todos.map((todo) => ({
+        ...todo,
+        type: "todo",
+      }));
+
+      const diaryItems: Activity[] = diaries.map((diary) => ({
+        id: diary.id,
+        type: "diary",
+        note: diary.note,
+        created_at: diary.created_at,
+        image_url: diary.image_url,
+        plant_id: diary.plant_id,
+      }));
+
+      const all = [...todoItems, ...diaryItems];
+      setActivities(all);
+      setTodayActivities(
+        all.filter(
+          (activity) =>
+            (activity.type === "diary" &&
+              activity.created_at?.slice(0, 10) === todayStr) ||
+            (activity.type === "todo" && activity.due_date === todayStr)
+        )
+      );
     };
-    if (user?.id) {
-      init();
-    }
-  }, [user?.id]);
+    init();
+  }, [user?.id, setActivities]);
+
+  // calendar 하이라이트 날짜 계산
+  const markedDates = activities
+    .map((activity) => {
+      const base =
+        activity.type === "todo"
+          ? activity.due_date
+          : activity.created_at?.slice(0, 10);
+      if (!base) return null;
+      const [y, m, d] = base.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    })
+    .filter(Boolean);
 
   return (
     <PrivateRoute>
@@ -60,6 +110,9 @@ const CalendarPage = () => {
               onSelect={handleSelectDate}
               className="w-[50%] m-auto bg-transparent p-0"
               required
+              modifiers={{
+                hasEvent: markedDates as Date[],
+              }}
             />
           </CardContent>
           <CardFooter className="flex flex-col items-start gap-3 border-t px-4 !pt-4">
@@ -77,7 +130,6 @@ const CalendarPage = () => {
                 className="size-6"
                 title="Add Event"
               >
-                {/* <PlusIcon /> */}
                 <i
                   className="fa-solid fa-plus"
                   onClick={() => setIsModalOpen(true)}
@@ -86,38 +138,53 @@ const CalendarPage = () => {
                 </i>
               </Button>
             </div>
-            <div className="flex w-full flex-col gap-2">
-              {events.map((event) => (
+
+            <div className="w-full flex flex-col gap-2 overflow-y-auto max-h-[300px] custom-scroll">
+              {todayActivities.map((activity) => (
                 <div
-                  key={event.id}
+                  key={`${activity.type}-${activity.id}`}
                   className="flex gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full"
                 >
                   <img
                     src={
-                      event.task_type === "watering"
-                        ? "/images/tasks/watering.png"
-                        : event.task_type === "repotting"
-                        ? "/images/tasks/repotting.png"
-                        : "/images/tasks/fertilizing.png"
+                      activity.type === "todo"
+                        ? taskTypeImageMap[activity.task_type!] ||
+                          taskTypeImageMap["etc"]
+                        : taskTypeImageMap["diary"]
                     }
                     className="w-10"
                   />
                   <div>
-                    <div className="font-medium">{event.task_type}</div>
-                    <div className="text-muted-foreground text-xs">
-                      {formatDateRange(
-                        new Date(event.created_at),
-                        new Date(event.due_date)
-                      )}
+                    <div className="font-medium">
+                      {activity.type === "todo"
+                        ? activity.task_type
+                        : "다이어리"}
                     </div>
+                    <div className="text-muted-foreground text-xs">
+                      {activity.plant_id}
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      {activity.type === "todo" &&
+                        // formatDateRange(
+                        //   new Date(activity.created_at!),
+                        //   new Date(activity.due_date!)
+                        // )
+                        activity.due_date}
+                    </div>
+                    {activity.type === "diary" && activity.note && (
+                      <div className="mt-1 text-xs line-clamp-2">
+                        {activity.note}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </CardFooter>
         </Card>
-        {/* 하단 네비게이션 섹션 */}
+
         <Navigation />
+
         {isModalOpen && (
           <AddTodoModal date={date!} onClose={() => setIsModalOpen(false)} />
         )}
@@ -125,4 +192,5 @@ const CalendarPage = () => {
     </PrivateRoute>
   );
 };
+
 export default CalendarPage;
