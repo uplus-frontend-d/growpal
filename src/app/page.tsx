@@ -77,9 +77,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {/* 하단 네비게이션 섹션 */}
-      <Navigation />
     </div>
   );
 }

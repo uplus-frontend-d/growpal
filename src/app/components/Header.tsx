@@ -1,9 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
 
   // 페이지별 제목 매핑
   const getPageTitle = () => {
@@ -39,13 +40,25 @@ export default function Header() {
   const title = getPageTitle();
   const isHomePage = pathname === "/";
 
+  // 홈페이지가 아닌 경우 GrowPal과 나머지를 분리해서 표시
+  const growpalPart = "GrowPal";
+  const restPart = title.replace("GrowPal ", "");
+
+  const handleGoHome = () => {
+    router.push("/");
+  };
+
   if (isHomePage) {
     return (
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+              <h1 onClick={handleGoHome}>
+                <span className="text-2xl font-bold text-green-600 cursor-pointer">
+                  {title}
+                </span>
+              </h1>
             </div>
           </div>
         </div>
@@ -53,17 +66,13 @@ export default function Header() {
     );
   }
 
-  // 홈페이지가 아닌 경우 GrowPal과 나머지를 분리해서 표시
-  const growpalPart = "GrowPal";
-  const restPart = title.replace("GrowPal ", "");
-
   return (
     <header className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
-            <h1 className="text-gray-900">
-              <span className="text-2xl font-bold text-green-600">
+            <h1 className="text-gray-900" onClick={handleGoHome}>
+              <span className="text-2xl font-bold text-green-600 cursor-pointer">
                 {growpalPart}
               </span>
               <span className="text-xl font-semibold text-gray-700 ml-2">
