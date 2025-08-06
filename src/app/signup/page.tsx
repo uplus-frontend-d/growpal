@@ -21,9 +21,9 @@ export default function SignUpPage() {
       <div className="px-6 py-8 pb-24 flex flex-col items-center">
         {/* 타이틀 섹션 */}
         <div className="text-center mb-8 w-80">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
             Welcome to Plant Care
-          </h1>
+          </h2>
           <p className="text-gray-600 text-base">
             Join our community and start
           </p>

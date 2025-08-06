@@ -50,9 +50,9 @@ export default function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
               <div className="text-center">
                 <div className="text-4xl mb-3">🌱</div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  환영합니다!
-                </h2>
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  Plant Care에 오신 것을 환영합니다.
+                </h1>
                 <p className="text-gray-600 text-sm">
                   Plant Care에 오신 것을 환영합니다.
                 </p>
@@ -64,9 +64,9 @@ export default function Home() {
           <div className="w-80">
             {/* 타이틀 섹션 */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                 Welcome to Plant Care
-              </h1>
+              </h2>
               <p className="text-gray-600 text-base">
                 Your personal guide to nurturing
               </p>
@@ -140,9 +140,9 @@ export default function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
               <div className="text-center">
                 <div className="text-4xl mb-3">🌱</div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  환영합니다!
-                </h2>
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  Plant Care에 오신 것을 환영합니다.
+                </h1>
                 <p className="text-gray-600 text-sm">
                   Plant Care에 오신 것을 환영합니다.
                 </p>
@@ -154,9 +154,9 @@ export default function Home() {
           <div className="w-80">
             // 타이틀 섹션
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                 Welcome to Plant Care
-              </h1>
+              </h2>
               <p className="text-gray-600 text-base">
                 Your personal guide to nurturing
               </p>
