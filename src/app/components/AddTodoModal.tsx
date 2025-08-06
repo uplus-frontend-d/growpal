@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createPlantTodo,
   createPlantDiary,
@@ -17,6 +17,83 @@ interface AddTodoModalProps {
   date: Date;
   onClose: () => void;
 }
+
+const ImageUploadForm = () => {
+  const { activity, setActivity } = useActivityStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const json = await res.json();
+
+    setActivity({ image_url: json.image_url });
+    return json.image_url ?? null;
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const triggerUpload = () => {
+    inputRef.current?.click();
+  };
+
+  return (
+    <div className="screen-item border-2 border-slate-200 rounded-xl p-4 bg-slate-50 relative">
+      <div className="screen-header flex justify-between items-center mb-4">
+        <div className="screen-controls flex gap-2"></div>
+      </div>
+      <div className="screen-content grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          className="upload-area border-2 border-dashed border-slate-300 rounded-lg p-6 text-center text-slate-400 flex flex-col justify-center items-center min-h-[200px] bg-white cursor-pointer"
+          onClick={triggerUpload}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
+          {activity.image_url ? (
+            <img
+              src={activity.image_url}
+              alt="미리보기"
+              className="max-h-52 object-contain"
+            />
+          ) : (
+            <>
+              <div className="text-4xl mb-2">📱</div>
+              <div className="text-base font-semibold">화면 이미지 업로드</div>
+              <div className="text-sm text-slate-400">
+                클릭하거나 드래그해서 업로드
+              </div>
+            </>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            ref={inputRef}
+            onChange={handleImageChange}
+            className="hidden"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
   const { user } = useUserStore();
@@ -243,15 +320,9 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  사진 URL (선택)
+                  식물 사진 (선택)
                 </label>
-                <input
-                  type="text"
-                  value={activity.image_url || ""}
-                  onChange={(e) => setActivity({ image_url: e.target.value })}
-                  className="w-full border border-gray-300 px-3 py-2 rounded-md"
-                  placeholder="예: https://..."
-                />
+                <ImageUploadForm />
               </div>
             </>
           )}
