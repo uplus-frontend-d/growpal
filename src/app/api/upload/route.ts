@@ -1,4 +1,7 @@
+import { supabase } from "@/app/lib/supabaseClient";
 import { NextRequest, NextResponse } from "next/server";
+
+const BUCKET_NAME = "plant-diary-images";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,16 +31,31 @@ export async function POST(req: NextRequest) {
     // 실제 프로덕션에서는 여기서 Supabase Storage나 다른 클라우드 스토리지에 업로드
     // 현재는 임시로 파일 정보만 반환
     const fileName = `${Date.now()}-${file.name}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    // TODO: 실제 파일 업로드 로직 구현
-    // const { data, error } = await supabase.storage
-    //   .from('plant-images')
-    //   .upload(fileName, file);
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Supabase upload error:", error.message);
+      return NextResponse.json(
+        { error: "파일 업로드 실패", detail: error.message },
+        { status: 500 }
+      );
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(data.path);
 
     return NextResponse.json({
       success: true,
-      fileName,
-      message: "파일 업로드가 완료되었습니다. (개발 모드: 실제 업로드 미구현)",
+      image_url: urlData.publicUrl,
+      file_name: data.path,
     });
   } catch (error) {
     console.error("Upload error:", error);

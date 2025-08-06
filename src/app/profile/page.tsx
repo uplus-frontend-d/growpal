@@ -4,6 +4,7 @@ import { useUserStore } from "../lib/userStore";
 import { supabase } from "../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import PrivateRoute from "../components/PrivateRoute";
+import Layout from "../components/Layout";
 import { useState } from "react";
 
 export default function ProfilePage() {
@@ -36,86 +37,83 @@ export default function ProfilePage() {
 
   return (
     <PrivateRoute>
-      <div className="bg-white">
-        {/* 상단 식물 이미지 섹션 */}
-        <div className="w-full h-64 bg-amber-50 flex items-center justify-center">
-          <div className="w-80 h-48 bg-amber-100 p-2 rounded-lg shadow-lg">
-            <div className="w-full h-full bg-amber-50 rounded-md overflow-hidden">
-              <img
-                src="/plant-image.jpg"
-                alt="Plant Care"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 메인 콘텐츠 섹션 */}
-        <div className="px-6 py-8 pb-24 flex flex-col items-center">
-          {/* 타이틀 섹션 */}
-          <div className="text-center mb-8 w-80">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Welcome to Plant Care
-            </h2>
-            <p className="text-gray-600 text-base">Your personal plant care</p>
-            <p className="text-gray-600 text-base">profile.</p>
-          </div>
-
-          {/* 프로필 정보 섹션 */}
-          <div className="w-80 space-y-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                <span className="text-gray-600 font-medium">Email</span>
-                <span className="text-black font-semibold">{user?.email}</span>
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                <span className="text-gray-600 font-medium">User ID</span>
-                <span className="text-black font-mono text-sm text-right">
-                  {user?.id}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                <span className="text-gray-600 font-medium">Provider</span>
-                <span className="text-black font-semibold">
-                  {user?.provider || "Email"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center py-3">
-                <span className="text-gray-600 font-medium">Joined</span>
-                <span className="text-black">
-                  {user?.created_at &&
-                    new Date(user.created_at).toLocaleDateString("ko-KR")}
-                </span>
-              </div>
-            </div>
-
+      <Layout subtitle="프로필">
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              👤 프로필 정보
+            </h1>
             {/* 로그아웃 오류 메시지 */}
             {logoutError && (
-              <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                 {logoutError}
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-4">
-              <a
-                href="/"
-                className="bg-gray-100 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors font-semibold text-sm"
-              >
-                Home
-              </a>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-semibold text-sm"
-              >
-                Logout
-              </button>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    이메일
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm">
+                    {user?.email}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    사용자 ID
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 font-mono text-xs break-all">
+                    {user?.id}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    로그인 방식
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm">
+                    {user?.provider === "google" ? "Google" : "이메일"}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    가입일
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm">
+                    {user?.created_at &&
+                      new Date(user.created_at).toLocaleDateString("ko-KR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md font-medium transition-colors text-sm"
+                >
+                  홈으로
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition-colors text-sm"
+                >
+                  로그아웃
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Layout>
     </PrivateRoute>
   );
 }
