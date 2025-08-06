@@ -73,9 +73,7 @@ const CalendarPage = () => {
       }));
 
       const all = [...todoItems, ...diaryItems];
-      console.log("all:", [...todoItems, ...diaryItems]);
       setActivities(all);
-      console.log(all);
       setTodayActivities(
         all.filter(
           (activity) =>

@@ -21,30 +21,20 @@ interface AddTodoModalProps {
 const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
   const { user } = useUserStore();
   const { plants, setPlants } = usePlantStore();
-  const { activity, setActivity, resetActivity, activities, updateActivities } =
+  const { activity, setActivity, resetActivity, updateActivities } =
     useActivityStore();
 
-  const [mode, setMode] = useState<"todo" | "diary">("todo");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadPlants = async () => {
-      try {
-        const data = await getUserPlants(user?.id!);
-        setPlants(data);
-        console.log("userplants:", data);
-        if (data.length > 0) {
-          setActivity({ plant_id: data[0].id });
-        }
-      } catch (err) {
-        console.error(err);
-        setError("식물 목록을 불러오는 데 실패했습니다.");
-      }
-    };
-
-    if (user?.id) loadPlants();
-  }, [user?.id]);
+  const isToday = (target: Date) => {
+    const now = new Date();
+    return (
+      now.getFullYear() === target.getFullYear() &&
+      now.getMonth() === target.getMonth() &&
+      now.getDate() === target.getDate()
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +44,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
       setLoading(true);
       const targetDateStr = formatDateToYMD(date);
 
-      if (mode === "todo") {
+      if (activity.type === "todo") {
         if (!activity.task_type?.trim()) {
           setError("할 일을 입력해주세요.");
           return;
@@ -69,7 +59,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           user_id: user?.id,
           date: targetDateStr,
         });
-        console.log("rawTodos:", rawTodos);
+
         const activities: Activity[] = rawTodos.map((todo) => ({
           id: todo.id,
           type: "todo",
@@ -77,15 +67,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           task_type: todo.task_type,
           due_date: todo.due_date,
         }));
+
         updateActivities(activities, targetDateStr);
       } else {
-        if (!activity.content?.trim()) {
+        if (!activity.note?.trim()) {
           setError("일지 내용을 입력해주세요.");
           return;
         }
 
         await createPlantDiary(activity.plant_id, {
-          note: activity.content,
+          note: activity.note,
           image_url: activity.image_url,
         });
 
@@ -93,15 +84,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           user_id: user?.id!,
           date: targetDateStr,
         });
-        console.log(rawDiaries);
-        const test: Activity[] = rawDiaries.map((diary) => ({
+
+        const activities: Activity[] = rawDiaries.map((diary) => ({
           id: diary.id,
           type: "diary",
-          plant_id: diary.id,
+          plant_id: diary.plant_id,
           created_at: diary.created_at,
-          content: diary.note,
+          note: diary.note,
         }));
-        updateActivities(test, targetDateStr);
+
+        updateActivities(activities, targetDateStr);
       }
 
       onClose();
@@ -116,11 +108,28 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
 
   const selectedPlant = plants.find((p) => p.id === activity.plant_id) || null;
 
+  useEffect(() => {
+    const loadPlants = async () => {
+      try {
+        const data = await getUserPlants(user?.id!);
+        setPlants(data);
+        if (data.length > 0) {
+          setActivity({ plant_id: data[0].id, type: "todo" }); // 기본값
+        }
+      } catch (err) {
+        console.error(err);
+        setError("식물 목록을 불러오는 데 실패했습니다.");
+      }
+    };
+
+    if (user?.id) loadPlants();
+  }, [user?.id]);
+
   return (
     <div className="fixed inset-0 bg-gray-10 bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
         <h2 className="text-xl font-semibold mb-4">
-          🌱 {mode === "todo" ? "할 일 추가" : "식물 일지 작성"}
+          🌱 {activity.type === "todo" ? "할 일 추가" : "식물 일지 작성"}
         </h2>
 
         {error && (
@@ -129,14 +138,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           </div>
         )}
 
-        {/* 모드 선택 */}
+        {/* 작성 유형 선택 */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             작성 유형
           </label>
           <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "todo" | "diary")}
+            value={activity.type}
+            onChange={(e) =>
+              setActivity({ type: e.target.value as "todo" | "diary" })
+            }
             className="w-full border border-gray-300 px-3 py-2 rounded-md"
           >
             <option value="todo">할 일</option>
@@ -183,7 +194,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           </div>
 
           {/* 할 일 모드 */}
-          {mode === "todo" && (
+          {activity.type === "todo" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 할 일
@@ -215,15 +226,15 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           )}
 
           {/* 일지 모드 */}
-          {mode === "diary" && (
+          {activity.type === "diary" && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   내용
                 </label>
                 <textarea
-                  value={activity.content || ""}
-                  onChange={(e) => setActivity({ content: e.target.value })}
+                  value={activity.note || ""}
+                  onChange={(e) => setActivity({ note: e.target.value })}
                   className="w-full border border-gray-300 px-3 py-2 rounded-md"
                   rows={4}
                   placeholder="오늘 식물의 상태나 관리 내용을 기록하세요."
@@ -245,6 +256,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
             </>
           )}
 
+          {/* 버튼 영역 */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -255,10 +267,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:bg-green-400"
+              disabled={
+                loading || (activity.type === "diary" && !isToday(date))
+              }
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:bg-gray-300"
             >
-              {loading ? "저장 중..." : "저장"}
+              {loading
+                ? "저장 중..."
+                : activity.type === "diary" && !isToday(date)
+                ? "오늘만 작성할 수 있어요"
+                : "저장"}
             </button>
           </div>
         </form>

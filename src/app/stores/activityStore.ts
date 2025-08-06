@@ -8,7 +8,7 @@ export interface Activity {
   plant_id: string;
   task_type?: string;
   due_date?: string;
-  content?: string;
+  note?: string;
   image_url?: string;
   created_at?: string;
 }
@@ -32,7 +32,7 @@ export const useActivityStore = create<ActivityStore>((set) => ({
     plant_id: "",
     task_type: "",
     due_date: "",
-    content: "",
+    note: "",
     image_url: "",
     created_at: "",
   },
@@ -48,7 +48,7 @@ export const useActivityStore = create<ActivityStore>((set) => ({
         plant_id: "",
         task_type: "",
         due_date: "",
-        content: "",
+        note: "",
         image_url: "",
         created_at: "",
       },
@@ -63,7 +63,8 @@ export const useActivityStore = create<ActivityStore>((set) => ({
         ...state.activities.filter((a) => {
           const baseDate =
             a.type === "todo" ? a.due_date : a.created_at?.slice(0, 10);
-          return baseDate !== date;
+          const newType = newItems[0]?.type; // 새로 추가할 활동의 type
+          return !(a.type === newType && baseDate === date);
         }),
         ...newItems,
       ],
