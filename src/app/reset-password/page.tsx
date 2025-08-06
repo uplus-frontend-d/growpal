@@ -1,5 +1,4 @@
 import ResetPasswordForm from "../components/ResetPasswordForm";
-import Navigation from "../components/Navigation";
 
 export default function ResetPasswordPage() {
   return (
@@ -34,9 +33,6 @@ export default function ResetPasswordPage() {
           <ResetPasswordForm />
         </div>
       </div>
-
-      {/* 하단 네비게이션 섹션 */}
-      <Navigation />
     </div>
   );
 }

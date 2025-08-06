@@ -1,5 +1,4 @@
 import ForgotPasswordForm from "../components/ForgotPasswordForm";
-import Navigation from "../components/Navigation";
 
 export default function ForgotPasswordPage() {
   return (
@@ -37,9 +36,6 @@ export default function ForgotPasswordPage() {
           <ForgotPasswordForm />
         </div>
       </div>
-
-      {/* 하단 네비게이션 섹션 */}
-      <Navigation />
     </div>
   );
 }

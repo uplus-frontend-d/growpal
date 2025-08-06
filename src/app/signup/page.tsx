@@ -1,5 +1,4 @@
 import SignUpForm from "../components/SignUpForm";
-import Navigation from "../components/Navigation";
 
 export default function SignUpPage() {
   return (
@@ -35,9 +34,6 @@ export default function SignUpPage() {
           <SignUpForm />
         </div>
       </div>
-
-      {/* 하단 네비게이션 섹션 */}
-      <Navigation />
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import PrivateRoute from "../components/PrivateRoute";
-import Navigation from "../components/Navigation";
 import { getUserActivities } from "@/lib/api";
 import { useUserStore } from "../lib/userStore";
 import { formatDateToYMD } from "@/lib/dateUtil";
@@ -101,7 +100,7 @@ const CalendarPage = () => {
 
   return (
     <PrivateRoute>
-      <div className="min-h-screen bg-white">
+      <div className="bg-white">
         <Card className="w-full h-full py-4">
           <CardContent className="px-4">
             <Calendar
@@ -182,8 +181,6 @@ const CalendarPage = () => {
             </div>
           </CardFooter>
         </Card>
-
-        <Navigation />
 
         {isModalOpen && (
           <AddTodoModal date={date!} onClose={() => setIsModalOpen(false)} />

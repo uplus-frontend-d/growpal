@@ -4,7 +4,6 @@ import { useUserStore } from "../lib/userStore";
 import { supabase } from "../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import PrivateRoute from "../components/PrivateRoute";
-import Navigation from "../components/Navigation";
 import { useState } from "react";
 
 export default function ProfilePage() {
@@ -37,7 +36,7 @@ export default function ProfilePage() {
 
   return (
     <PrivateRoute>
-      <div className="min-h-screen bg-white">
+      <div className="bg-white">
         {/* 상단 식물 이미지 섹션 */}
         <div className="w-full h-64 bg-amber-50 flex items-center justify-center">
           <div className="w-80 h-48 bg-amber-100 p-2 rounded-lg shadow-lg">
@@ -116,9 +115,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-
-        {/* 하단 네비게이션 섹션 */}
-        <Navigation />
       </div>
     </PrivateRoute>
   );

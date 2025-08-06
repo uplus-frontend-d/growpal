@@ -1,5 +1,4 @@
 import LoginForm from "../components/LoginForm";
-import Navigation from "../components/Navigation";
 
 export default function LoginPage() {
   return (
@@ -35,9 +34,6 @@ export default function LoginPage() {
           <LoginForm />
         </div>
       </div>
-
-      {/* 하단 네비게이션 섹션 */}
-      <Navigation />
     </div>
   );
 }
