@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPlantTodo, createPlantDiary, getUserPlants } from "@/lib/api";
+import {
+  createPlantTodo,
+  createPlantDiary,
+  getUserPlants,
+  getUserTodosByExactDate,
+  getUserDiariesByExactDate,
+} from "@/lib/api";
 import { useUserStore } from "@/app/lib/userStore";
+import { formatDateToYMD } from "@/lib/dateUtil";
+import { usePlantStore } from "../stores/plantStore";
+import { Activity, useActivityStore } from "../stores/activityStore";
 
 interface AddTodoModalProps {
   date: Date;
@@ -11,20 +20,93 @@ interface AddTodoModalProps {
 
 const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
   const { user } = useUserStore();
-  const [mode, setMode] = useState<"todo" | "diary">("todo");
-  const [plants, setPlants] = useState<
-    { id: string; name: string; image_url?: string }[]
-  >([]);
+  const { plants, setPlants } = usePlantStore();
+  const { activity, setActivity, resetActivity, updateActivities } =
+    useActivityStore();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [todoData, setTodoData] = useState({ plant_id: "", task_type: "" });
-  const [diaryData, setDiaryData] = useState({
-    plant_id: "",
-    content: "",
-    image_url: "",
-  });
+  const isToday = (target: Date) => {
+    const now = new Date();
+    return (
+      now.getFullYear() === target.getFullYear() &&
+      now.getMonth() === target.getMonth() &&
+      now.getDate() === target.getDate()
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    try {
+      setLoading(true);
+      const targetDateStr = formatDateToYMD(date);
+
+      if (activity.type === "todo") {
+        if (!activity.task_type?.trim()) {
+          setError("할 일을 입력해주세요.");
+          return;
+        }
+
+        await createPlantTodo(activity.plant_id, {
+          task_type: activity.task_type,
+          due_date: targetDateStr,
+        });
+
+        const rawTodos = await getUserTodosByExactDate({
+          user_id: user?.id,
+          date: targetDateStr,
+        });
+
+        const activities: Activity[] = rawTodos.map((todo) => ({
+          id: todo.id,
+          type: "todo",
+          plant_id: todo.plant_id,
+          task_type: todo.task_type,
+          due_date: todo.due_date,
+        }));
+
+        updateActivities(activities, targetDateStr);
+      } else {
+        if (!activity.note?.trim()) {
+          setError("일지 내용을 입력해주세요.");
+          return;
+        }
+
+        await createPlantDiary(activity.plant_id, {
+          note: activity.note,
+          image_url: activity.image_url,
+        });
+
+        const rawDiaries = await getUserDiariesByExactDate({
+          user_id: user?.id!,
+          date: targetDateStr,
+        });
+
+        const activities: Activity[] = rawDiaries.map((diary) => ({
+          id: diary.id,
+          type: "diary",
+          plant_id: diary.plant_id,
+          created_at: diary.created_at,
+          note: diary.note,
+        }));
+
+        updateActivities(activities, targetDateStr);
+      }
+
+      onClose();
+      resetActivity();
+    } catch (err) {
+      console.error(err);
+      setError("작성 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedPlant = plants.find((p) => p.id === activity.plant_id) || null;
 
   useEffect(() => {
     const loadPlants = async () => {
@@ -32,8 +114,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
         const data = await getUserPlants(user?.id!);
         setPlants(data);
         if (data.length > 0) {
-          setTodoData((prev) => ({ ...prev, plant_id: data[0].id }));
-          setDiaryData((prev) => ({ ...prev, plant_id: data[0].id }));
+          setActivity({ plant_id: data[0].id, type: "todo" }); // 기본값
         }
       } catch (err) {
         console.error(err);
@@ -44,58 +125,11 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
     if (user?.id) loadPlants();
   }, [user?.id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    try {
-      setLoading(true);
-
-      if (mode === "todo") {
-        if (!todoData.task_type.trim()) {
-          setError("할 일을 입력해주세요.");
-          return;
-        }
-
-        await createPlantTodo({
-          user_id: user?.id,
-          plant_id: todoData.plant_id,
-          task_type: todoData.task_type,
-          due_date: date.toISOString().split("T")[0],
-        });
-      } else {
-        if (!diaryData.content.trim()) {
-          setError("일지 내용을 입력해주세요.");
-          return;
-        }
-
-        await createPlantDiary({
-          user_id: user?.id,
-          plant_id: diaryData.plant_id,
-          content: diaryData.content,
-          image_url: diaryData.image_url || null,
-          written_at: date.toISOString().split("T")[0],
-        });
-      }
-
-      onClose(); // 닫기
-    } catch (err) {
-      console.error(err);
-      setError("작성 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const selectedPlant =
-    plants.find((p) =>
-      mode === "todo" ? p.id === todoData.plant_id : p.id === diaryData.plant_id
-    ) || null;
-
   return (
     <div className="fixed inset-0 bg-gray-10 bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
         <h2 className="text-xl font-semibold mb-4">
-          🌱 {mode === "todo" ? "할 일 추가" : "식물 일지 작성"}
+          🌱 {activity.type === "todo" ? "할 일 추가" : "식물 일지 작성"}
         </h2>
 
         {error && (
@@ -104,14 +138,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           </div>
         )}
 
-        {/* 모드 선택 */}
+        {/* 작성 유형 선택 */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             작성 유형
           </label>
           <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "todo" | "diary")}
+            value={activity.type}
+            onChange={(e) =>
+              setActivity({ type: e.target.value as "todo" | "diary" })
+            }
             className="w-full border border-gray-300 px-3 py-2 rounded-md"
           >
             <option value="todo">할 일</option>
@@ -120,18 +156,14 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 식물 선택 공통 */}
+          {/* 식물 선택 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               식물 선택
             </label>
             <select
-              value={mode === "todo" ? todoData.plant_id : diaryData.plant_id}
-              onChange={(e) =>
-                mode === "todo"
-                  ? setTodoData({ ...todoData, plant_id: e.target.value })
-                  : setDiaryData({ ...diaryData, plant_id: e.target.value })
-              }
+              value={activity.plant_id}
+              onChange={(e) => setActivity({ plant_id: e.target.value })}
               className="w-full border border-gray-300 px-3 py-2 rounded-md"
             >
               {plants.map((plant) => (
@@ -141,7 +173,6 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
               ))}
             </select>
 
-            {/* 이미지 프리뷰 */}
             {selectedPlant?.image_url && (
               <div className="mt-2 flex items-center gap-3">
                 <img
@@ -163,36 +194,47 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           </div>
 
           {/* 할 일 모드 */}
-          {mode === "todo" && (
+          {activity.type === "todo" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 할 일
               </label>
-              <input
-                type="text"
-                value={todoData.task_type}
-                onChange={(e) =>
-                  setTodoData({ ...todoData, task_type: e.target.value })
-                }
-                className="w-full border border-gray-300 px-3 py-2 rounded-md"
-                placeholder="예: 물 주기"
+              <select
+                value={activity.task_type}
+                onChange={(e) => setActivity({ task_type: e.target.value })}
+                className="w-full border border-gray-300 px-3 py-2 rounded-md mb-2"
                 required
-              />
+              >
+                <option value="">선택하세요</option>
+                <option value="watering">물주기</option>
+                <option value="repotting">분갈이</option>
+                <option value="fertilizing">영양제</option>
+                <option value="etc">기타</option>
+              </select>
+
+              {activity.task_type === "etc" && (
+                <input
+                  type="text"
+                  value={activity.task_type || ""}
+                  onChange={(e) => setActivity({ task_type: e.target.value })}
+                  className="w-full border border-gray-300 px-3 py-2 rounded-md"
+                  placeholder="기타 작업 내용을 입력하세요"
+                  required
+                />
+              )}
             </div>
           )}
 
           {/* 일지 모드 */}
-          {mode === "diary" && (
+          {activity.type === "diary" && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   내용
                 </label>
                 <textarea
-                  value={diaryData.content}
-                  onChange={(e) =>
-                    setDiaryData({ ...diaryData, content: e.target.value })
-                  }
+                  value={activity.note || ""}
+                  onChange={(e) => setActivity({ note: e.target.value })}
                   className="w-full border border-gray-300 px-3 py-2 rounded-md"
                   rows={4}
                   placeholder="오늘 식물의 상태나 관리 내용을 기록하세요."
@@ -205,10 +247,8 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
                 </label>
                 <input
                   type="text"
-                  value={diaryData.image_url}
-                  onChange={(e) =>
-                    setDiaryData({ ...diaryData, image_url: e.target.value })
-                  }
+                  value={activity.image_url || ""}
+                  onChange={(e) => setActivity({ image_url: e.target.value })}
                   className="w-full border border-gray-300 px-3 py-2 rounded-md"
                   placeholder="예: https://..."
                 />
@@ -216,6 +256,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
             </>
           )}
 
+          {/* 버튼 영역 */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -226,10 +267,16 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:bg-green-400"
+              disabled={
+                loading || (activity.type === "diary" && !isToday(date))
+              }
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:bg-gray-300"
             >
-              {loading ? "저장 중..." : "저장"}
+              {loading
+                ? "저장 중..."
+                : activity.type === "diary" && !isToday(date)
+                ? "오늘만 작성할 수 있어요"
+                : "저장"}
             </button>
           </div>
         </form>
