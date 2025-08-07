@@ -13,7 +13,7 @@ import AddTodoModal from "../components/AddTodoModal";
 import { Activity, useActivityStore } from "../stores/activityStore";
 
 // 아이콘 맵
-const taskTypeImageMap: Record<string, string> = {
+export const taskTypeImageMap: Record<string, string> = {
   watering: "/images/tasks/watering.png",
   repotting: "/images/tasks/repotting.png",
   fertilizing: "/images/tasks/fertilizing.png",
