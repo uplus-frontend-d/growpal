@@ -3,14 +3,22 @@ import { create } from "zustand";
 export type ActivityType = "todo" | "diary";
 
 export interface Activity {
-  id: string;
   type: ActivityType;
+
+  id: string;
   plant_id: string;
+  created_at: string;
+  plants: object;
+
+  // todo
   task_type?: string;
   due_date?: string;
-  note?: string;
+  is_done?: boolean;
+  executed_at?: string;
+
+  // diary
   image_url?: string;
-  created_at?: string;
+  note?: string;
 }
 
 interface ActivityStore {

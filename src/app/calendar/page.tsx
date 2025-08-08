@@ -13,7 +13,7 @@ import AddTodoModal from "../components/AddTodoModal";
 import { Activity, useActivityStore } from "../stores/activityStore";
 
 // 아이콘 맵
-const taskTypeImageMap: Record<string, string> = {
+export const taskTypeImageMap: Record<string, string> = {
   watering: "/images/tasks/watering.png",
   repotting: "/images/tasks/repotting.png",
   fertilizing: "/images/tasks/fertilizing.png",
@@ -63,12 +63,8 @@ const CalendarPage = () => {
       }));
 
       const diaryItems: Activity[] = diaries.map((diary) => ({
-        id: diary.id,
+        ...diary,
         type: "diary",
-        note: diary.note,
-        created_at: diary.created_at,
-        image_url: diary.image_url,
-        plant_id: diary.plant_id,
       }));
 
       const all = [...todoItems, ...diaryItems];
@@ -100,8 +96,8 @@ const CalendarPage = () => {
 
   return (
     <PrivateRoute>
-      <div className="bg-white">
-        <Card className="w-full h-full py-4">
+      <div className="bg-white w-full flex justify-center ">
+        <Card className="w-[70%] flex flex-col py-4 mb-5">
           <CardContent className="px-4">
             <Calendar
               mode="single"
@@ -159,20 +155,14 @@ const CalendarPage = () => {
                         ? activity.task_type
                         : "다이어리"}
                     </div>
-                    <div className="text-muted-foreground text-xs">
-                      {activity.plant_id}
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      {activity.type === "todo" &&
-                        // formatDateRange(
-                        //   new Date(activity.created_at!),
-                        //   new Date(activity.due_date!)
-                        // )
-                        activity.due_date}
-                    </div>
-                    {activity.type === "diary" && activity.note && (
+                    {activity.type === "todo" && (
+                      <div className="text-muted-foreground text-xs">
+                        {activity.plants.name}
+                      </div>
+                    )}
+                    {activity.type === "diary" && (
                       <div className="mt-1 text-xs line-clamp-2">
-                        {activity.note}
+                        {activity.plants.name + " | " + activity.note}
                       </div>
                     )}
                   </div>
