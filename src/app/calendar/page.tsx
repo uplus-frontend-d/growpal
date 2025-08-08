@@ -100,8 +100,8 @@ const CalendarPage = () => {
 
   return (
     <PrivateRoute>
-      <div className="bg-white">
-        <Card className="w-full h-full py-4">
+      <div className="bg-white w-full flex justify-center ">
+        <Card className="w-[70%] flex flex-col py-4 mb-5">
           <CardContent className="px-4">
             <Calendar
               mode="single"
