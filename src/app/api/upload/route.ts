@@ -29,8 +29,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 실제 프로덕션에서는 여기서 Supabase Storage나 다른 클라우드 스토리지에 업로드
-    // 현재는 임시로 파일 정보만 반환
-    const fileName = `${Date.now()}-${file.name}`;
+    const normalizeFilename = (filename: string): string => {
+      return filename
+        .normalize("NFC") // 조합형 → 완성형
+        .replace(/[^a-zA-Z0-9.\-_]/g, "_"); // 안전한 문자만 허용
+    };
+
+    const fileName = `${Date.now()}-${normalizeFilename(file.name)}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { data, error } = await supabase.storage
