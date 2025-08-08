@@ -662,7 +662,7 @@ export async function uploadImage(file: File): Promise<UploadImageResponse> {
 export interface User {
   id: string;
   email: string;
-  provider: string;
+  provider: string; // 쉼표로 구분된 provider 문자열 (예: "google,github")
   created_at: string;
 }
 
@@ -687,6 +687,12 @@ export interface SignUpRequest {
 export interface SignUpResponse {
   user: User;
   message: string;
+}
+
+export interface SignUpErrorResponse {
+  error: string;
+  provider?: string;
+  code?: string;
 }
 
 export interface ForgotPasswordRequest {

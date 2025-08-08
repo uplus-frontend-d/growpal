@@ -15,5 +15,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    flowType: "pkce",
+    debug: process.env.NODE_ENV === "development",
+  },
+  global: {
+    headers: {
+      "X-Client-Info": "growpal-web",
+    },
   },
 });
