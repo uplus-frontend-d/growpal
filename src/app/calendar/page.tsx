@@ -63,12 +63,8 @@ const CalendarPage = () => {
       }));
 
       const diaryItems: Activity[] = diaries.map((diary) => ({
-        id: diary.id,
+        ...diary,
         type: "diary",
-        note: diary.note,
-        created_at: diary.created_at,
-        image_url: diary.image_url,
-        plant_id: diary.plant_id,
       }));
 
       const all = [...todoItems, ...diaryItems];
@@ -159,20 +155,14 @@ const CalendarPage = () => {
                         ? activity.task_type
                         : "다이어리"}
                     </div>
-                    <div className="text-muted-foreground text-xs">
-                      {activity.plant_id}
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      {activity.type === "todo" &&
-                        // formatDateRange(
-                        //   new Date(activity.created_at!),
-                        //   new Date(activity.due_date!)
-                        // )
-                        activity.due_date}
-                    </div>
-                    {activity.type === "diary" && activity.note && (
+                    {activity.type === "todo" && (
+                      <div className="text-muted-foreground text-xs">
+                        {activity.plants.name}
+                      </div>
+                    )}
+                    {activity.type === "diary" && (
                       <div className="mt-1 text-xs line-clamp-2">
-                        {activity.note}
+                        {activity.plants.name + " | " + activity.note}
                       </div>
                     )}
                   </div>

@@ -7,7 +7,8 @@ export interface Activity {
 
   id: string;
   plant_id: string;
-  created_at?: string;
+  created_at: string;
+  plants: object;
 
   // todo
   task_type?: string;
