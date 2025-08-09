@@ -61,13 +61,13 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         images: [`data:image/jpeg;base64,${base64Image}`],
-        modifiers: ["health_all", "disease_similar_images"],
+        modifiers: ["health_all", "disease_similar_images", "crop_fast"],
         plant_details: [
           "common_names",
-          "url",
-          "wiki_description",
           "care_instructions",
           "watering",
+          "treatment",
+          "description",
         ],
       }),
     });
@@ -163,14 +163,156 @@ async function analyzeAIResponse(response: any) {
   // Plant.id 건강 상태 분석 활용
   const healthAssessment = response.health_assessment;
 
-  // Plant.id 정보를 우선적으로 사용하여 관리 팁 생성
+  // Plant.id 기본 관리 정보 추출
   const plantIdCare = topResult?.plant_details;
-  const plantCharacteristics = await generatePlantCareTips(
+  let plantIdTips = [];
+  let plantIdWatering = "일주일에 1-2회";
+
+  console.log("Plant.id care 정보:", plantIdCare);
+
+  // care_instructions 파싱
+  if (plantIdCare?.care_instructions) {
+    console.log(
+      "care_instructions 타입:",
+      typeof plantIdCare.care_instructions
+    );
+    console.log("care_instructions 내용:", plantIdCare.care_instructions);
+
+    if (typeof plantIdCare.care_instructions === "string") {
+      const sentences = plantIdCare.care_instructions
+        .split(/[.!?]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 10)
+        .slice(0, 3);
+      plantIdTips.push(...sentences);
+    } else if (Array.isArray(plantIdCare.care_instructions)) {
+      plantIdTips.push(...plantIdCare.care_instructions.slice(0, 3));
+    } else if (typeof plantIdCare.care_instructions === "object") {
+      // 객체 형태인 경우 값들을 추출
+      const values = Object.values(plantIdCare.care_instructions).filter(
+        (v) => typeof v === "string" && v.length > 10
+      );
+      plantIdTips.push(...values.slice(0, 3));
+    }
+  } else {
+    console.log("care_instructions가 없습니다");
+  }
+
+  // treatment 파싱
+  if (plantIdCare?.treatment) {
+    console.log("treatment 타입:", typeof plantIdCare.treatment);
+    console.log("treatment 내용:", plantIdCare.treatment);
+
+    if (typeof plantIdCare.treatment === "string") {
+      const sentences = plantIdCare.treatment
+        .split(/[.!?]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 10)
+        .slice(0, 2);
+      plantIdTips.push(...sentences);
+    } else if (Array.isArray(plantIdCare.treatment)) {
+      plantIdTips.push(...plantIdCare.treatment.slice(0, 2));
+    } else if (typeof plantIdCare.treatment === "object") {
+      const values = Object.values(plantIdCare.treatment).filter(
+        (v) => typeof v === "string" && v.length > 10
+      );
+      plantIdTips.push(...values.slice(0, 2));
+    }
+  } else {
+    console.log("treatment가 없습니다");
+  }
+
+  // description 파싱 제거 - 실제 관리팁이 아닌 단순 설명이므로 제외
+  console.log("description 파싱을 건너뛰고 전문 진단에 집중합니다");
+
+  if (plantIdCare?.watering) {
+    console.log("watering 정보:", plantIdCare.watering);
+
+    if (typeof plantIdCare.watering === "string") {
+      plantIdWatering = plantIdCare.watering;
+      console.log("문자열 형태 watering:", plantIdWatering);
+    } else if (
+      typeof plantIdCare.watering === "object" &&
+      plantIdCare.watering
+    ) {
+      const { min, max } = plantIdCare.watering;
+      console.log("객체 형태 watering - min:", min, "max:", max);
+
+      if (min && max) {
+        if (min === max) {
+          plantIdWatering = `주 ${min}회`;
+        } else {
+          plantIdWatering = `주 ${min}-${max}회`;
+        }
+        // 물주기 정보를 관리 팁에 추가
+        plantIdTips.push(
+          `적정 물주기: 이 식물은 ${plantIdWatering} 물을 주는 것이 적절합니다.`
+        );
+        console.log("물주기 관리 팁 추가:", plantIdWatering);
+      }
+    }
+  } else {
+    console.log("watering 정보가 없습니다");
+  }
+
+  // Plant.id 건강상태 기반 팁 추가
+  if (healthAssessment && healthAssessment.diseases) {
+    const significantDiseases = healthAssessment.diseases
+      .filter((disease: any) => disease.probability > 0.2) // 20% 이상 확률인 질병만
+      .slice(0, 2); // 상위 2개만
+
+    significantDiseases.forEach((disease: any) => {
+      const diseaseName = disease.name;
+      const probability = (disease.probability * 100).toFixed(1);
+
+      // 하드코딩된 조치법이 있는 항목들
+      if (diseaseName.includes("water")) {
+        plantIdTips.push(
+          `물 관리 주의: ${diseaseName} 증상이 ${probability}% 확률로 감지되었습니다. 물주기 간격을 조정해보세요.`
+        );
+      } else if (diseaseName.includes("light")) {
+        plantIdTips.push(
+          `조명 관리: ${diseaseName} 문제가 ${probability}% 확률로 감지되었습니다. 빛의 양을 조절해보세요.`
+        );
+      } else if (diseaseName.includes("nutrient")) {
+        plantIdTips.push(
+          `영양 관리: ${diseaseName} 문제가 ${probability}% 확률로 감지되었습니다. 비료를 고려해보세요.`
+        );
+      } else if (diseaseName.includes("damage")) {
+        plantIdTips.push(
+          `물리적 손상: ${diseaseName}이 ${probability}% 확률로 감지되었습니다. 손상된 부분을 제거해보세요.`
+        );
+      } else if (diseaseName === "Abiotic") {
+        plantIdTips.push(
+          `환경적 스트레스: 비생물적 요인이 ${probability}% 확률로 감지되었습니다. 환경 조건을 점검해보세요.`
+        );
+      } else {
+        // 하드코딩되지 않은 항목들은 조치법 없이 알림만
+        plantIdTips.push(
+          `감지된 문제: ${diseaseName}이 ${probability}% 확률로 감지되었습니다.`
+        );
+      }
+    });
+  }
+
+  console.log(`Plant.id 기본 팁 개수: ${plantIdTips.length}`);
+
+  // OpenRouter로 Plant.id 정보 기반 맞춤형 팁 생성
+  const openRouterTips = await generateAdditionalCareTips(
+    plantName,
     koreanName,
+    healthAssessment,
     topResults,
-    plantIdCare,
-    healthAssessment
+    plantIdWatering,
+    plantIdTips
   );
+
+  console.log(
+    `OpenRouter 추가 팁 개수: ${
+      openRouterTips.additional_care_tips?.length || 0
+    }`
+  );
+  console.log("OpenRouter 팁 내용:", openRouterTips.additional_care_tips);
 
   let healthScore = 5; // 기본값
   let growthStatus = "보통";
@@ -192,36 +334,72 @@ async function analyzeAIResponse(response: any) {
     console.log(`건강 상태 분석 없음, 신뢰도 기반 폴백: ${healthScore}/10`);
   }
 
-  // 상세 분석 생성
+  // 상세 분석 생성 (합쳐진 팁 사용)
+  const combinedTips = {
+    plant_id_tips: plantIdTips,
+    openrouter_tips: openRouterTips.additional_care_tips || [],
+  };
+
   const detailedAnalysis = generateDetailedAnalysis(
     koreanName,
     confidence,
     topResults,
-    plantCharacteristics
+    combinedTips
   );
 
-  return {
+  const finalResponse = {
     plant_species: plantName,
     korean_name: koreanName,
     growth_status: growthStatus,
     health_score: healthScore,
-    care_tips: plantCharacteristics.care_tips,
-    watering_frequency: plantCharacteristics.watering_frequency,
+    care_tips: {
+      plant_id_tips: plantIdTips,
+      openrouter_tips: openRouterTips.additional_care_tips || [],
+    },
+    watering_frequency: plantIdWatering,
     confidence: confidence,
     detailed_analysis: detailedAnalysis,
   };
+
+  console.log("최종 응답 구조:", {
+    plant_id_tips_count: finalResponse.care_tips.plant_id_tips.length,
+    openrouter_tips_count: finalResponse.care_tips.openrouter_tips.length,
+    care_tips: finalResponse.care_tips,
+  });
+
+  return finalResponse;
 }
 
-async function generatePlantCareTips(
+// 현재 계절 판단 함수
+function getCurrentSeason(): string {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+
+  if (month >= 3 && month <= 5) {
+    return "봄";
+  } else if (month >= 6 && month <= 8) {
+    return "여름";
+  } else if (month >= 9 && month <= 11) {
+    return "가을";
+  } else {
+    return "겨울";
+  }
+}
+
+async function generateAdditionalCareTips(
   plantName: string,
+  koreanName: string,
+  healthAssessment: any,
   topResults: any[],
-  plantIdCare?: any,
-  healthAssessment?: any
+  wateringInfo: string,
+  plantIdTips: string[]
 ) {
   // topResults가 undefined인 경우 안전하게 처리
   if (!topResults || !Array.isArray(topResults)) {
     console.log("topResults가 유효하지 않습니다:", topResults);
-    return generateBasicCareTips(plantName, []);
+    return {
+      additional_care_tips: ["식물의 현재 상태를 더 자세히 관찰해주세요"],
+    };
   }
 
   const confidence = topResults[0]?.probability || 0;
@@ -240,76 +418,9 @@ async function generatePlantCareTips(
     console.log(`대안 식물: ${alternativePlants}`);
   }
 
-  // Plant.id에서 받은 정보 우선 사용
-  if (plantIdCare) {
-    console.log("Plant.id 관리 지침 사용:", plantIdCare);
-
-    // 물주기 정보 추출
-    let wateringInfo = "일주일에 1-2회"; // 기본값
-    if (plantIdCare.watering) {
-      if (typeof plantIdCare.watering === "string") {
-        wateringInfo = plantIdCare.watering;
-      } else if (plantIdCare.watering.frequency) {
-        wateringInfo = plantIdCare.watering.frequency;
-      }
-    }
-
-    // 관리 팁 생성 (Plant.id care_instructions 활용)
-    const careTips = [];
-
-    // 건강 상태 기반 팁 추가
-    if (healthAssessment && !healthAssessment.is_healthy) {
-      const diseases = healthAssessment.diseases || [];
-      const topDiseases = diseases.slice(0, 2).map((d) => d.name);
-      if (topDiseases.length > 0) {
-        careTips.push(
-          `주의사항: ${topDiseases.join(", ")} 증상이 감지되었습니다`
-        );
-      }
-    }
-
-    // care_instructions에서 팁 추출
-    if (plantIdCare.care_instructions) {
-      const instructions = Array.isArray(plantIdCare.care_instructions)
-        ? plantIdCare.care_instructions
-        : [plantIdCare.care_instructions];
-
-      instructions.slice(0, 3).forEach((instruction) => {
-        if (typeof instruction === "string" && instruction.length > 5) {
-          careTips.push(instruction);
-        } else if (instruction && instruction.description) {
-          careTips.push(instruction.description);
-        }
-      });
-    }
-
-    // 기본 관리 팁으로 부족한 부분 채우기
-    if (careTips.length < 4) {
-      const basicTips = [
-        "적절한 조도를 제공하세요",
-        "토양 습도를 확인하세요",
-        "정기적으로 잎을 관찰하세요",
-        "계절에 따라 관리를 조정하세요",
-      ];
-
-      basicTips.forEach((tip) => {
-        if (
-          careTips.length < 4 &&
-          !careTips.some((existing) => existing.includes(tip.slice(0, 5)))
-        ) {
-          careTips.push(tip);
-        }
-      });
-    }
-
-    console.log(`Plant.id 기반 물주기: ${wateringInfo}`);
-    console.log(`Plant.id 기반 관리팁 개수: ${careTips.length}`);
-
-    return {
-      watering_frequency: wateringInfo,
-      care_tips: careTips.slice(0, 4), // 최대 4개
-    };
-  }
+  // 순수하게 OpenRouter로 건강상태 기반 추가 팁만 생성
+  const currentSeason = getCurrentSeason();
+  console.log(`현재 계절: ${currentSeason}`);
 
   // OpenRouter API 키 확인
   console.log(
@@ -327,12 +438,23 @@ async function generatePlantCareTips(
     Object.keys(process.env).filter((key) => key.includes("OPENROUTER"))
   );
 
-  // Plant.id 정보가 없을 때만 OpenRouter 사용
-  console.log("Plant.id 정보가 부족하여 OpenRouter를 폴백으로 사용합니다.");
+  // Plant.id 분석 결과를 바탕으로 OpenRouter에서 맞춤형 팁 생성
+  console.log(
+    "Plant.id 분석 결과를 OpenRouter에 전달하여 맞춤형 관리 팁을 생성합니다."
+  );
+  console.log("전달되는 정보:", {
+    plantName,
+    koreanName,
+    wateringInfo,
+    plantIdTipsCount: plantIdTips.length,
+    healthStatus: healthAssessment?.is_healthy ? "건강함" : "주의 필요",
+  });
 
   if (!process.env.OPENROUTER_API_KEY) {
     console.log("OpenRouter API 키가 없어서 기본 팁을 사용합니다.");
-    return generateBasicCareTips(plantName, topResults);
+    return {
+      additional_care_tips: ["OpenRouter API 키가 설정되지 않았습니다"],
+    };
   }
 
   try {
@@ -358,24 +480,49 @@ async function generatePlantCareTips(
             },
             {
               role: "user",
-              content: `다음 식물에 대한 관리 팁을 한국어로 제공해주세요:
+              content: `당신은 식물 관리 전문가입니다. Plant.id의 과학적 분석 결과를 바탕으로 최적의 관리 팁을 제공해주세요:
 
-식물 이름: ${plantName}
-분석 신뢰도: ${Math.round(confidence * 100)}%
-${confidence < 0.5 ? `대안 식물: ${alternativePlants}` : ""}
+🌱 **식물 기본 정보**
+- 식물 이름: ${plantName}
+- 한국어 이름: ${koreanName || plantName}
+- 분석 신뢰도: ${Math.round(confidence * 100)}%
 
-다음 형식으로 JSON 응답을 제공해주세요:
-{
-  "watering_frequency": "물주기 빈도 (예: 일주일에 1-2회)",
-  "care_tips": ["팁1", "팁2", "팁3", "팁4"]
+💧 **Plant.id 물주기 정보**
+- 적정 물주기: ${wateringInfo || "정보 없음"}
+
+🏥 **Plant.id 건강 진단**
+- 건강 상태: ${healthAssessment?.is_healthy ? "건강함" : "주의 필요"}
+- 건강 확률: ${
+                healthAssessment?.is_healthy_probability
+                  ? Math.round(healthAssessment.is_healthy_probability * 100)
+                  : 0
+              }%
+
+🔍 **Plant.id 감지된 문제점**
+${
+  plantIdTips.length > 0
+    ? plantIdTips.map((tip) => `- ${tip}`).join("\n")
+    : "- 특별한 문제점 없음"
 }
 
-주의사항:
-- 신뢰도가 낮은 경우 일반적인 식물 관리 팁을 제공하세요
-- 실제적인 관리 방법을 제시하세요
-- 한국어로 응답하세요
-- JSON 형식만 응답하세요
-- 다른 설명은 포함하지 마세요`,
+🌸 **현재 계절**: ${currentSeason}
+
+위의 Plant.id 과학적 분석 결과를 종합하여, 현재 계절(${currentSeason})에 맞는 **실용적이고 구체적인** 관리 팁 3개를 제공해주세요.
+
+다음 형식으로 JSON 응답해주세요:
+{
+  "additional_care_tips": ["구체적 실행 팁1", "계절별 맞춤 팁2", "문제 해결 팁3"]
+}
+
+**중요 원칙**:
+✅ Plant.id 진단 결과를 반드시 반영하세요
+✅ 현재 계절(${currentSeason})에 특화된 관리법 포함
+✅ 건강 문제가 있다면 우선적으로 해결 방안 제시
+✅ 물주기 정보를 고려한 수분 관리 조언
+✅ 실행 가능하고 구체적인 방법만 제시
+✅ 정확히 3개의 팁만 제공
+✅ 한국어로 응답
+✅ JSON 형식만 응답`,
             },
           ],
           temperature: 0.7,
@@ -394,7 +541,9 @@ ${confidence < 0.5 ? `대안 식물: ${alternativePlants}` : ""}
       console.log(
         `OpenRouter API 오류: ${openRouterResponse.status} - ${errorText}`
       );
-      return generateBasicCareTips(plantName, topResults);
+      return {
+        additional_care_tips: ["OpenRouter API 키가 설정되지 않았습니다"],
+      };
     }
 
     const response = await openRouterResponse.json();
@@ -411,12 +560,11 @@ ${confidence < 0.5 ? `대안 식물: ${alternativePlants}` : ""}
         console.log("JSON 매치 발견:", jsonMatch[0]);
         const parsedResponse = JSON.parse(jsonMatch[0]);
         console.log("파싱된 JSON:", parsedResponse);
+        const tips = parsedResponse.additional_care_tips || [
+          "식물의 현재 상태를 더 자세히 관찰해주세요",
+        ];
         return {
-          watering_frequency:
-            parsedResponse.watering_frequency || "일주일에 1-2회",
-          care_tips: parsedResponse.care_tips || [
-            "식물 관리 팁을 생성할 수 없습니다",
-          ],
+          additional_care_tips: tips.slice(0, 3), // 최대 3개로 제한
         };
       } else {
         console.log("JSON 매치를 찾을 수 없음");
@@ -425,13 +573,15 @@ ${confidence < 0.5 ? `대안 식물: ${alternativePlants}` : ""}
       console.error("JSON 파싱 오류:", parseError);
     }
 
-    // JSON 파싱 실패 시 텍스트에서 팁 추출
-    console.log("JSON 파싱 실패, 텍스트에서 팁 추출 시도...");
-    return extractTipsFromText(generatedText, plantName);
+    // JSON 파싱 실패 시 기본 팁 반환
+    console.log("JSON 파싱 실패, 기본 팁 반환...");
+    return { additional_care_tips: ["건강 상태를 정기적으로 관찰해주세요"] };
   } catch (error) {
     console.error("OpenRouter API 호출 실패:", error);
     console.log("기본 팁으로 폴백...");
-    return generateBasicCareTips(plantName, topResults);
+    return {
+      additional_care_tips: ["OpenRouter API 호출 중 오류가 발생했습니다"],
+    };
   }
 }
 
@@ -557,8 +707,18 @@ ${
     : ""
 }
 
-💡 관리 팁:
-${characteristics.care_tips.map((tip: string) => `• ${tip}`).join("\n")}
+💡 Plant.id 기본 관리법:
+${
+  characteristics.plant_id_tips?.map((tip: string) => `• ${tip}`).join("\n") ||
+  "• 기본 관리 정보가 없습니다"
+}
+
+🤖 AI 맞춤 관리 팁:
+${
+  characteristics.openrouter_tips
+    ?.map((tip: string) => `• ${tip}`)
+    .join("\n") || "• 추가 관리 팁이 없습니다"
+}
 
 🔍 추가 관찰사항:
 - 식물의 잎 상태를 정기적으로 확인하세요
