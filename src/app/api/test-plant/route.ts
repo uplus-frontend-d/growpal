@@ -130,8 +130,34 @@ async function analyzeAIResponse(response: any) {
   let plantName = topResult?.plant_name || "알 수 없는 식물";
   let confidence = Math.round((topResult?.probability || 0) * 100);
 
+  // 한국어 이름 찾기
+  let koreanName = plantName; // 기본값은 영문명
+  if (
+    topResult?.plant_details?.common_names &&
+    Array.isArray(topResult.plant_details.common_names)
+  ) {
+    // 한국어 이름이 있는지 확인 (한글 포함된 이름 찾기)
+    const koreanCommonName = topResult.plant_details.common_names.find(
+      (name) =>
+        /[가-힣]/.test(name) ||
+        name.toLowerCase().includes("korean") ||
+        name.toLowerCase().includes("korea")
+    );
+
+    if (koreanCommonName) {
+      koreanName = koreanCommonName;
+      console.log(`한국어 이름 발견: ${koreanName}`);
+    } else {
+      // 한국어 이름이 없으면 첫 번째 common_name 사용
+      koreanName = topResult.plant_details.common_names[0] || plantName;
+      console.log(`영문 common name 사용: ${koreanName}`);
+    }
+  }
+
   // Plant.id는 식물 전문이므로 화분 재분류 로직 제거
-  console.log(`식물 식별: ${plantName}, 신뢰도: ${confidence}%`);
+  console.log(
+    `식물 식별: ${plantName} (${koreanName}), 신뢰도: ${confidence}%`
+  );
 
   // Plant.id 관리 지침과 OpenRouter 관리 팁 결합
   const plantIdCare = topResult?.plant_details;
@@ -165,7 +191,7 @@ async function analyzeAIResponse(response: any) {
 
   // 상세 분석 생성
   const detailedAnalysis = generateDetailedAnalysis(
-    plantName,
+    koreanName,
     confidence,
     topResults,
     plantCharacteristics
@@ -173,6 +199,7 @@ async function analyzeAIResponse(response: any) {
 
   return {
     plant_species: plantName,
+    korean_name: koreanName,
     growth_status: growthStatus,
     health_score: healthScore,
     care_tips: plantCharacteristics.care_tips,
@@ -499,6 +526,7 @@ function determineGrowthStatus(healthScore: number): string {
 function generateDefaultAnalysis(plantName: string, confidence: number) {
   return {
     plant_species: plantName,
+    korean_name: plantName,
     growth_status: "알 수 없음",
     health_score: 0,
     care_tips: [

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PlantAnalysis {
   plant_species: string;
+  korean_name?: string;
   growth_status: string;
   health_score: number;
   care_tips: string[];
@@ -121,7 +122,16 @@ export default function TestPlant() {
                 <div>
                   <span className="font-semibold">식물 종류:</span>
                   <p className="text-lg">
-                    {analysis.plant_species || "알 수 없음"}
+                    {analysis.korean_name ? (
+                      <>
+                        {analysis.korean_name}
+                        <span className="text-sm text-gray-500 ml-2">
+                          ({analysis.plant_species})
+                        </span>
+                      </>
+                    ) : (
+                      analysis.plant_species || "알 수 없음"
+                    )}
                   </p>
                 </div>
                 <div>
