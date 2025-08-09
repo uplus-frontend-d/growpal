@@ -75,7 +75,57 @@ export default function ProfilePage() {
                     로그인 방식
                   </label>
                   <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm">
-                    {user?.provider === "google" ? "Google" : "이메일"}
+                    {(() => {
+                      if (!user?.provider) return "이메일";
+
+                      console.log("=== 프로필 페이지 - provider 정보 ===", {
+                        provider: user.provider,
+                        providerType: typeof user.provider,
+                        providerLength: user.provider?.length,
+                        providerIncludesComma: user.provider?.includes(","),
+                        providerSplit: user.provider?.split(","),
+                      });
+
+                      // provider가 쉼표로 구분된 문자열인 경우
+                      if (
+                        typeof user.provider === "string" &&
+                        user.provider.includes(",")
+                      ) {
+                        const providers = user.provider
+                          .split(",")
+                          .map((p) => p.trim())
+                          .filter((p) => p.length > 0);
+
+                        console.log("분리된 providers:", providers);
+
+                        return providers
+                          .map((provider) => {
+                            switch (provider) {
+                              case "google":
+                                return "Google";
+                              case "github":
+                                return "GitHub";
+                              case "email":
+                                return "이메일";
+                              default:
+                                return provider;
+                            }
+                          })
+                          .join(", ");
+                      }
+
+                      // 단일 provider인 경우
+                      switch (user.provider) {
+                        case "google":
+                          return "Google";
+                        case "github":
+                          return "GitHub";
+                        case "email":
+                          return "이메일";
+                        default:
+                          return user.provider;
+                      }
+                    })()}
                   </div>
                 </div>
 

@@ -5,7 +5,9 @@ import type { SignUpRequest, SignUpResponse } from "@/lib/api";
 // 회원가입
 export async function POST(
   req: NextRequest
-): Promise<NextResponse<SignUpResponse | { error: string }>> {
+): Promise<
+  NextResponse<SignUpResponse | { error: string; provider?: string }>
+> {
   try {
     const body: SignUpRequest = await req.json();
     const { email, password } = body;
@@ -23,6 +25,49 @@ export async function POST(
       return NextResponse.json(
         { error: "Password must be at least 8 characters long" },
         { status: 400 }
+      );
+    }
+
+    // 기존 사용자 확인 (이메일로) - 대소문자 구분
+    const { data: existingUsers, error: checkError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email);
+
+    if (checkError) {
+      console.error("사용자 확인 오류:", checkError);
+      return NextResponse.json(
+        { error: "사용자 확인 중 오류가 발생했습니다." },
+        { status: 500 }
+      );
+    }
+
+    // 정확히 일치하는 이메일 찾기 (대소문자 구분)
+    const existingUser = existingUsers?.find((user) => user.email === email);
+
+    // 기존 사용자가 있는 경우 - 첫 번째 가입 provider 정보 반환
+    if (existingUser) {
+      console.log("중복 이메일 가입 시도:", { email, existingUser });
+
+      // provider 정보 추출 및 포맷팅
+      let providerName = "이메일";
+      if (existingUser.provider) {
+        if (existingUser.provider.includes("google")) {
+          providerName = "구글";
+        } else if (existingUser.provider.includes("github")) {
+          providerName = "GitHub";
+        } else if (existingUser.provider.includes("email")) {
+          providerName = "이메일";
+        }
+      }
+
+      return NextResponse.json(
+        {
+          error: `이미 '${providerName}'으로 가입하셨습니다.`,
+          provider: existingUser.provider,
+          code: "EMAIL_ALREADY_EXISTS",
+        },
+        { status: 409 }
       );
     }
 
