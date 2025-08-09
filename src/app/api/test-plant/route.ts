@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
           "url",
           "wiki_description",
           "care_instructions",
+          "watering",
         ],
       }),
     });
@@ -159,12 +160,13 @@ async function analyzeAIResponse(response: any) {
     `식물 식별: ${plantName} (${koreanName}), 신뢰도: ${confidence}%`
   );
 
-  // Plant.id 관리 지침과 OpenRouter 관리 팁 결합
+  // Plant.id 정보를 우선적으로 사용하여 관리 팁 생성
   const plantIdCare = topResult?.plant_details;
-  const plantCharacteristics = await generateOpenRouterCareTips(
-    plantName,
+  const plantCharacteristics = await generatePlantCareTips(
+    koreanName,
     topResults,
-    plantIdCare
+    plantIdCare,
+    healthAssessment
   );
 
   // Plant.id 건강 상태 분석 활용
@@ -209,10 +211,11 @@ async function analyzeAIResponse(response: any) {
   };
 }
 
-async function generateOpenRouterCareTips(
+async function generatePlantCareTips(
   plantName: string,
   topResults: any[],
-  plantIdCare?: any
+  plantIdCare?: any,
+  healthAssessment?: any
 ) {
   // topResults가 undefined인 경우 안전하게 처리
   if (!topResults || !Array.isArray(topResults)) {
@@ -236,23 +239,74 @@ async function generateOpenRouterCareTips(
     console.log(`대안 식물: ${alternativePlants}`);
   }
 
-  // Plant.id 관리 지침이 있으면 우선 사용
+  // Plant.id에서 받은 정보 우선 사용
   if (plantIdCare) {
     console.log("Plant.id 관리 지침 사용:", plantIdCare);
+
+    // 물주기 정보 추출
+    let wateringInfo = "일주일에 1-2회"; // 기본값
+    if (plantIdCare.watering) {
+      if (typeof plantIdCare.watering === "string") {
+        wateringInfo = plantIdCare.watering;
+      } else if (plantIdCare.watering.frequency) {
+        wateringInfo = plantIdCare.watering.frequency;
+      }
+    }
+
+    // 관리 팁 생성 (Plant.id care_instructions 활용)
+    const careTips = [];
+
+    // 건강 상태 기반 팁 추가
+    if (healthAssessment && !healthAssessment.is_healthy) {
+      const diseases = healthAssessment.diseases || [];
+      const topDiseases = diseases.slice(0, 2).map((d) => d.name);
+      if (topDiseases.length > 0) {
+        careTips.push(
+          `주의사항: ${topDiseases.join(", ")} 증상이 감지되었습니다`
+        );
+      }
+    }
+
+    // care_instructions에서 팁 추출
+    if (plantIdCare.care_instructions) {
+      const instructions = Array.isArray(plantIdCare.care_instructions)
+        ? plantIdCare.care_instructions
+        : [plantIdCare.care_instructions];
+
+      instructions.slice(0, 3).forEach((instruction) => {
+        if (typeof instruction === "string" && instruction.length > 5) {
+          careTips.push(instruction);
+        } else if (instruction && instruction.description) {
+          careTips.push(instruction.description);
+        }
+      });
+    }
+
+    // 기본 관리 팁으로 부족한 부분 채우기
+    if (careTips.length < 4) {
+      const basicTips = [
+        "적절한 조도를 제공하세요",
+        "토양 습도를 확인하세요",
+        "정기적으로 잎을 관찰하세요",
+        "계절에 따라 관리를 조정하세요",
+      ];
+
+      basicTips.forEach((tip) => {
+        if (
+          careTips.length < 4 &&
+          !careTips.some((existing) => existing.includes(tip.slice(0, 5)))
+        ) {
+          careTips.push(tip);
+        }
+      });
+    }
+
+    console.log(`Plant.id 기반 물주기: ${wateringInfo}`);
+    console.log(`Plant.id 기반 관리팁 개수: ${careTips.length}`);
+
     return {
-      watering_frequency: plantIdCare.watering || "일주일에 1-2회",
-      care_tips: [
-        plantIdCare.light
-          ? `조도: ${plantIdCare.light}`
-          : "적절한 조도를 제공하세요",
-        plantIdCare.temperature
-          ? `온도: ${plantIdCare.temperature}`
-          : "적절한 온도를 유지하세요",
-        plantIdCare.fertilizer
-          ? `비료: ${plantIdCare.fertilizer}`
-          : "정기적으로 비료를 주세요",
-        "식물의 상태를 주기적으로 관찰하세요",
-      ],
+      watering_frequency: wateringInfo,
+      care_tips: careTips.slice(0, 4), // 최대 4개
     };
   }
 
@@ -271,6 +325,9 @@ async function generateOpenRouterCareTips(
     "모든 환경 변수 키들:",
     Object.keys(process.env).filter((key) => key.includes("OPENROUTER"))
   );
+
+  // Plant.id 정보가 없을 때만 OpenRouter 사용
+  console.log("Plant.id 정보가 부족하여 OpenRouter를 폴백으로 사용합니다.");
 
   if (!process.env.OPENROUTER_API_KEY) {
     console.log("OpenRouter API 키가 없어서 기본 팁을 사용합니다.");
