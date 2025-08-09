@@ -160,6 +160,9 @@ async function analyzeAIResponse(response: any) {
     `식물 식별: ${plantName} (${koreanName}), 신뢰도: ${confidence}%`
   );
 
+  // Plant.id 건강 상태 분석 활용
+  const healthAssessment = response.health_assessment;
+
   // Plant.id 정보를 우선적으로 사용하여 관리 팁 생성
   const plantIdCare = topResult?.plant_details;
   const plantCharacteristics = await generatePlantCareTips(
@@ -169,8 +172,6 @@ async function analyzeAIResponse(response: any) {
     healthAssessment
   );
 
-  // Plant.id 건강 상태 분석 활용
-  const healthAssessment = response.health_assessment;
   let healthScore = 5; // 기본값
   let growthStatus = "보통";
 

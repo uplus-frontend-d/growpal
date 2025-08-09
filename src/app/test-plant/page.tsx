@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import AddTodoModal from "@/app/components/AddTodoModal";
 
 interface PlantAnalysis {
   plant_species: string;
@@ -19,6 +20,7 @@ export default function TestPlant() {
   const [imageUrl, setImageUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [analysis, setAnalysis] = useState<PlantAnalysis | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState("");
 
   // analysis 상태 변경 시 로그 출력
@@ -201,7 +203,34 @@ export default function TestPlant() {
               </p>
             </CardContent>
           </Card>
+
+          {/* 활동 기록 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle>활동 기록</CardTitle>
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                + 추가
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">
+                이 기능은 실제 식물 페이지에서 사용할 수 있습니다.
+              </p>
+            </CardContent>
+          </Card>
         </div>
+      )}
+
+      {/* AddTodoModal */}
+      {isModalOpen && (
+        <AddTodoModal
+          date={new Date()}
+          preselectedPlantId="test-plant-id"
+          onClose={() => setIsModalOpen(false)}
+        />
       )}
     </div>
   );

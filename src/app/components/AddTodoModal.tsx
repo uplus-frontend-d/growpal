@@ -7,9 +7,14 @@ import { useUserStore } from "@/app/lib/userStore";
 interface AddTodoModalProps {
   date: Date;
   onClose: () => void;
+  preselectedPlantId?: string;
 }
 
-const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
+const AddTodoModal = ({
+  date,
+  onClose,
+  preselectedPlantId,
+}: AddTodoModalProps) => {
   const { user } = useUserStore();
   const [mode, setMode] = useState<"todo" | "diary">("todo");
   const [plants, setPlants] = useState<
@@ -31,9 +36,13 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
       try {
         const data = await getUserPlants(user?.id!);
         setPlants(data);
-        if (data.length > 0) {
-          setTodoData((prev) => ({ ...prev, plant_id: data[0].id }));
-          setDiaryData((prev) => ({ ...prev, plant_id: data[0].id }));
+
+        // preselectedPlantId가 있으면 해당 식물로 초기 설정, 없으면 첫 번째 식물
+        const initialPlantId =
+          preselectedPlantId || (data.length > 0 ? data[0].id : "");
+        if (initialPlantId) {
+          setTodoData((prev) => ({ ...prev, plant_id: initialPlantId }));
+          setDiaryData((prev) => ({ ...prev, plant_id: initialPlantId }));
         }
       } catch (err) {
         console.error(err);
@@ -42,7 +51,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
     };
 
     if (user?.id) loadPlants();
-  }, [user?.id]);
+  }, [user?.id, preselectedPlantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +66,7 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           return;
         }
 
-        await createPlantTodo({
-          user_id: user?.id,
-          plant_id: todoData.plant_id,
+        await createPlantTodo(todoData.plant_id, {
           task_type: todoData.task_type,
           due_date: date.toISOString().split("T")[0],
         });
@@ -69,12 +76,9 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           return;
         }
 
-        await createPlantDiary({
-          user_id: user?.id,
-          plant_id: diaryData.plant_id,
-          content: diaryData.content,
-          image_url: diaryData.image_url || null,
-          written_at: date.toISOString().split("T")[0],
+        await createPlantDiary(diaryData.plant_id, {
+          note: diaryData.content,
+          image_url: diaryData.image_url || undefined,
         });
       }
 
@@ -125,21 +129,29 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               식물 선택
             </label>
-            <select
-              value={mode === "todo" ? todoData.plant_id : diaryData.plant_id}
-              onChange={(e) =>
-                mode === "todo"
-                  ? setTodoData({ ...todoData, plant_id: e.target.value })
-                  : setDiaryData({ ...diaryData, plant_id: e.target.value })
-              }
-              className="w-full border border-gray-300 px-3 py-2 rounded-md"
-            >
-              {plants.map((plant) => (
-                <option key={plant.id} value={plant.id}>
-                  {plant.name}
-                </option>
-              ))}
-            </select>
+            {preselectedPlantId ? (
+              // 미리 선택된 식물이 있으면 텍스트로 표시
+              <div className="w-full border border-gray-300 px-3 py-2 rounded-md bg-gray-50 text-gray-700">
+                {selectedPlant?.name || "식물 정보 로딩 중..."}
+              </div>
+            ) : (
+              // 일반적인 드롭다운 선택
+              <select
+                value={mode === "todo" ? todoData.plant_id : diaryData.plant_id}
+                onChange={(e) =>
+                  mode === "todo"
+                    ? setTodoData({ ...todoData, plant_id: e.target.value })
+                    : setDiaryData({ ...diaryData, plant_id: e.target.value })
+                }
+                className="w-full border border-gray-300 px-3 py-2 rounded-md"
+              >
+                {plants.map((plant) => (
+                  <option key={plant.id} value={plant.id}>
+                    {plant.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* 이미지 프리뷰 */}
             {selectedPlant?.image_url && (
@@ -166,18 +178,22 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           {mode === "todo" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                할 일
+                할 일 종류
               </label>
-              <input
-                type="text"
+              <select
                 value={todoData.task_type}
                 onChange={(e) =>
                   setTodoData({ ...todoData, task_type: e.target.value })
                 }
                 className="w-full border border-gray-300 px-3 py-2 rounded-md"
-                placeholder="예: 물 주기"
                 required
-              />
+              >
+                <option value="">할 일을 선택하세요</option>
+                <option value="watering">물주기</option>
+                <option value="fertilizing">비료주기</option>
+                <option value="repotting">분갈이</option>
+                <option value="etc">기타</option>
+              </select>
             </div>
           )}
 

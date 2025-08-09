@@ -11,6 +11,7 @@ import {
   updatePlantTodo,
 } from "@/lib/api";
 import Layout from "@/app/components/Layout";
+import AddTodoModal from "@/app/components/AddTodoModal";
 import { taskTypeImageMap } from "@/app/calendar/page";
 import {
   Activity,
@@ -26,6 +27,7 @@ export default function PlantDetailPage() {
   const [plant, setPlant] = useState<Plant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { activities, setActivities } = useActivityStore();
 
@@ -316,10 +318,19 @@ export default function PlantDetailPage() {
 
         {/* Diary 목록 - 식물 정보 하단에 세로로 배치 */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <span className="mr-2">📝</span>
-            활동 기록
-          </h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+              <span className="mr-2">📝</span>
+              활동 기록
+            </h2>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors"
+            >
+              <span className="text-lg">+</span>
+              <span>추가</span>
+            </button>
+          </div>
 
           {completedItems.length === 0 ? (
             <div className="text-center py-8">
@@ -405,6 +416,19 @@ export default function PlantDetailPage() {
           )}
         </div>
       </div>
+
+      {/* AddTodoModal */}
+      {isModalOpen && (
+        <AddTodoModal
+          date={new Date()}
+          preselectedPlantId={plantId}
+          onClose={() => {
+            setIsModalOpen(false);
+            // 모달 닫힌 후 데이터 새로고침
+            loadPlantData();
+          }}
+        />
+      )}
     </Layout>
   );
 }
