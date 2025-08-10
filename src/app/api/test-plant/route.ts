@@ -244,11 +244,8 @@ async function analyzeAIResponse(response: any) {
         } else {
           plantIdWatering = `주 ${min}-${max}회`;
         }
-        // 물주기 정보를 관리 팁에 추가
-        plantIdTips.push(
-          `적정 물주기: 이 식물은 ${plantIdWatering} 물을 주는 것이 적절합니다.`
-        );
-        console.log("물주기 관리 팁 추가:", plantIdWatering);
+        // 물주기 정보는 별도 필드로 제공 (관리 팁에는 추가하지 않음)
+        console.log("물주기 정보 설정:", plantIdWatering);
       }
     }
   } else {
@@ -258,7 +255,7 @@ async function analyzeAIResponse(response: any) {
   // Plant.id 건강상태 기반 팁 추가
   if (healthAssessment && healthAssessment.diseases) {
     const significantDiseases = healthAssessment.diseases
-      .filter((disease: any) => disease.probability > 0.2) // 20% 이상 확률인 질병만
+      .filter((disease: any) => disease.probability > 0.1) // 10% 이상 확률인 질병만
       .slice(0, 2); // 상위 2개만
 
     significantDiseases.forEach((disease: any) => {
@@ -340,6 +337,13 @@ async function analyzeAIResponse(response: any) {
     openrouter_tips: openRouterTips.additional_care_tips || [],
   };
 
+  // Plant.id 분석 결과를 기존 species 타입에 매핑
+  const { mappedSpecies, suggestedNewTypes } = mapPlantIdToSpecies(
+    plantIdCare,
+    plantName,
+    koreanName
+  );
+
   const detailedAnalysis = generateDetailedAnalysis(
     koreanName,
     confidence,
@@ -350,6 +354,8 @@ async function analyzeAIResponse(response: any) {
   const finalResponse = {
     plant_species: plantName,
     korean_name: koreanName,
+    mapped_species: mappedSpecies, // 기존 species 타입으로 매핑된 결과
+    suggested_new_types: suggestedNewTypes, // 새로운 타입 제안
     growth_status: growthStatus,
     health_score: healthScore,
     care_tips: {
@@ -384,6 +390,135 @@ function getCurrentSeason(): string {
   } else {
     return "겨울";
   }
+}
+
+// Plant.id 분석 결과를 기존 species 타입에 매핑하는 함수
+function mapPlantIdToSpecies(
+  plantDetails: any,
+  plantName: string,
+  koreanName: string
+): {
+  mappedSpecies: string;
+  suggestedNewTypes: string[];
+} {
+  // 기존 species 타입들 (기타 포함)
+  const existingSpecies = [
+    "몬스테라",
+    "스킨답서스",
+    "필로덴드론",
+    "산세베리아",
+    "다육식물",
+    "선인장",
+    "허브",
+    "관엽식물",
+    "기타",
+  ];
+
+  // Plant.id 응답에서 식물 분류 정보 추출
+  const classification = plantDetails?.classification;
+  const family = plantDetails?.family;
+  const genus = plantDetails?.genus;
+
+  console.log("식물 분류 정보:", {
+    classification,
+    family,
+    genus,
+    plantName,
+    koreanName,
+  });
+
+  // 1. 한국어 이름 기반 매핑
+  if (koreanName && koreanName !== plantName) {
+    const koreanMapping: { [key: string]: string } = {
+      몬스테라: "몬스테라",
+      스킨답서스: "스킨답서스",
+      필로덴드론: "필로덴드론",
+      산세베리아: "산세베리아",
+      다육식물: "다육식물",
+      선인장: "선인장",
+      허브: "허브",
+      관엽식물: "관엽식물",
+      기타: "기타",
+    };
+
+    for (const [korean, species] of Object.entries(koreanMapping)) {
+      if (koreanName.includes(korean) || korean.includes(koreanName)) {
+        console.log(`한국어 이름 기반 매핑: ${koreanName} → ${species}`);
+        return { mappedSpecies: species, suggestedNewTypes: [] };
+      }
+    }
+  }
+
+  // 2. 영문 이름 기반 매핑
+  const englishMapping: { [key: string]: string } = {
+    monstera: "몬스테라",
+    philodendron: "필로덴드론",
+    scindapsus: "스킨답서스",
+    sansevieria: "산세베리아",
+    succulent: "다육식물",
+    cactus: "선인장",
+    herb: "허브",
+    foliage: "관엽식물",
+  };
+
+  const lowerPlantName = plantName.toLowerCase();
+  for (const [english, species] of Object.entries(englishMapping)) {
+    if (lowerPlantName.includes(english)) {
+      console.log(`영문 이름 기반 매핑: ${plantName} → ${species}`);
+      return { mappedSpecies: species, suggestedNewTypes: [] };
+    }
+  }
+
+  // 3. 식물과(family) 기반 매핑
+  if (family) {
+    const familyMapping: { [key: string]: string } = {
+      Araceae: "관엽식물", // 천남성과 (몬스테라, 필로덴드론, 스킨답서스 등)
+      Asparagaceae: "산세베리아", // 아스파라거스과
+      Crassulaceae: "다육식물", // 돌나물과
+      Cactaceae: "선인장", // 선인장과
+      Lamiaceae: "허브", // 꿀풀과
+      Apiaceae: "허브", // 산형과
+    };
+
+    const lowerFamily = family.toLowerCase();
+    for (const [familyName, species] of Object.entries(familyMapping)) {
+      if (lowerFamily.includes(familyName.toLowerCase())) {
+        console.log(`식물과 기반 매핑: ${family} → ${species}`);
+        return { mappedSpecies: species, suggestedNewTypes: [] };
+      }
+    }
+  }
+
+  // 4. 매핑할 수 없는 경우 새로운 타입 제안
+  const suggestedNewTypes: string[] = [];
+
+  // Plant.id 응답에서 새로운 타입 추천
+  if (classification) {
+    if (
+      classification.includes("succulent") ||
+      classification.includes("cactus")
+    ) {
+      suggestedNewTypes.push("다육식물");
+    } else if (
+      classification.includes("herb") ||
+      classification.includes("medicinal")
+    ) {
+      suggestedNewTypes.push("허브");
+    } else if (
+      classification.includes("tropical") ||
+      classification.includes("indoor")
+    ) {
+      suggestedNewTypes.push("관엽식물");
+    }
+  }
+
+  // 매핑할 수 없는 경우 "기타"로 분류
+  console.log(`매핑 실패, 기타로 분류: ${plantName} → 기타`);
+  return {
+    mappedSpecies: "기타",
+    suggestedNewTypes:
+      suggestedNewTypes.length > 0 ? suggestedNewTypes : ["기타"],
+  };
 }
 
 async function generateAdditionalCareTips(

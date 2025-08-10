@@ -70,6 +70,11 @@ export default function TestPlant() {
       label: "비모란 (Moon Cactus)",
       korean: "선인장",
     },
+    {
+      value: "Unknown Plant",
+      label: "기타 (Unknown Plant)",
+      korean: "기타",
+    },
   ];
 
   const healthOptions = [
