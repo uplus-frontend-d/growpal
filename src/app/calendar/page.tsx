@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { formatDateRange } from "little-date";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -37,18 +36,19 @@ const CalendarPage = () => {
 
   const getActivitiesByDate = (target: Date) => {
     const dateStr = formatDateToYMD(target);
-    return activities.filter(
-      (activity) =>
-        (activity.type === "diary" &&
-          activity.created_at?.slice(0, 10) === dateStr) ||
-        (activity.type === "todo" && activity.due_date === dateStr)
-    );
+    return activities
+      .filter(
+        (activity) =>
+          (activity.type === "diary" &&
+            activity.created_at?.slice(0, 10) === dateStr) ||
+          (activity.type === "todo" && activity.due_date === dateStr)
+      )
+      .sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return bTime - aTime; // 내림차순
+      });
   };
-
-  useEffect(() => {
-    if (!date) return;
-    setTodayActivities(getActivitiesByDate(date));
-  }, [activities, date]);
 
   // 초기 로딩: 오늘 날짜
   useEffect(() => {
@@ -70,12 +70,18 @@ const CalendarPage = () => {
       const all = [...todoItems, ...diaryItems];
       setActivities(all);
       setTodayActivities(
-        all.filter(
-          (activity) =>
-            (activity.type === "diary" &&
-              activity.created_at?.slice(0, 10) === todayStr) ||
-            (activity.type === "todo" && activity.due_date === todayStr)
-        )
+        all
+          .filter(
+            (activity) =>
+              (activity.type === "diary" &&
+                activity.created_at?.slice(0, 10) === todayStr) ||
+              (activity.type === "todo" && activity.due_date === todayStr)
+          )
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at).getTime();
+            const bTime = new Date(b.created_at).getTime();
+            return bTime - aTime; // 내림차순
+          })
       );
     };
     init();
@@ -97,7 +103,7 @@ const CalendarPage = () => {
   return (
     <PrivateRoute>
       <div className="bg-white w-full flex justify-center ">
-        <Card className="w-[70%] flex flex-col py-4 mb-5">
+        <Card className="w-[70%] flex flex-col py-4 mb-5 border-none">
           <CardContent className="px-4">
             <Calendar
               mode="single"
@@ -138,16 +144,22 @@ const CalendarPage = () => {
               {todayActivities.map((activity) => (
                 <div
                   key={`${activity.type}-${activity.id}`}
-                  className="flex gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full"
+                  className="flex items-center gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full"
                 >
                   <img
                     src={
                       activity.type === "todo"
                         ? taskTypeImageMap[activity.task_type!] ||
                           taskTypeImageMap["etc"]
-                        : taskTypeImageMap["diary"]
+                        : activity.image_url ?? taskTypeImageMap["diary"]
                     }
-                    className="w-10"
+                    className="object-contain"
+                    style={{
+                      maxWidth: "40px",
+                      maxHeight: "40px",
+                      width: "auto",
+                      height: "auto",
+                    }}
                   />
                   <div>
                     <div className="font-medium">
@@ -157,12 +169,12 @@ const CalendarPage = () => {
                     </div>
                     {activity.type === "todo" && (
                       <div className="text-muted-foreground text-xs">
-                        {activity.plants.name}
+                        {activity?.plants.name}
                       </div>
                     )}
                     {activity.type === "diary" && (
                       <div className="mt-1 text-xs line-clamp-2">
-                        {activity.plants.name + " | " + activity.note}
+                        {activity?.plants.name + " | " + activity?.note}
                       </div>
                     )}
                   </div>
