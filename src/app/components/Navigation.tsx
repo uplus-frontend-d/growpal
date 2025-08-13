@@ -84,13 +84,6 @@ export default function Navigation() {
           <i className="fa-solid fa-calendar text-xl" />
           <span className="text-xs text-gray-700">Calendar</span>
         </button>
-        <button
-          onClick={() => router.push("/plants/add")}
-          className="flex flex-col items-center space-y-1"
-        >
-          <i className="fa-solid fa-plus text-xl" />
-          <span className="text-xs text-gray-700">Add</span>
-        </button>
         {user ? (
           // 로그인 상태 - 프로필 버튼
           <button

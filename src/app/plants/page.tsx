@@ -101,69 +101,82 @@ export default function PlantsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {plants.map((plant) => (
-              <div
-                key={plant.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden relative cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push(`/plants/${plant.id}`)}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-end">
+              <button
+                onClick={() => (window.location.href = "/plants/add")}
+                className="w-[150px] bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
-                {/* 삭제 버튼 */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDeleteConfirm(plant.id, plant.name);
-                  }}
-                  className="absolute top-2 right-2 z-10 w-6 h-6 bg-red-300 hover:bg-red-400 text-white rounded-full flex items-center justify-center transition-colors"
-                  title="식물 삭제"
+                식물 추가하기
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {plants.map((plant) => (
+                <div
+                  key={plant.id}
+                  className="bg-white rounded-lg shadow-md overflow-hidden relative cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => router.push(`/plants/${plant.id}`)}
                 >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  {/* 삭제 버튼 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDeleteConfirm(plant.id, plant.name);
+                    }}
+                    className="absolute top-2 right-2 z-10 w-6 h-6 bg-red-300 hover:bg-red-400 text-white rounded-full flex items-center justify-center transition-colors"
+                    title="식물 삭제"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-                {/* 식물 이미지 */}
-                <div className="h-48 bg-[#FBEFDD] flex items-center justify-center">
-                  {plant.image_url ? (
-                    <img
-                      src={plant.image_url}
-                      alt={plant.name}
-                      className="h-full w-auto object-contain"
-                      onError={(e) => {
-                        console.error("Image failed to load:", plant.image_url);
-                        e.currentTarget.style.display = "none";
-                        e.currentTarget.nextElementSibling?.classList.remove(
-                          "hidden"
-                        );
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className={`text-4xl text-gray-400 ${
-                      plant.image_url ? "hidden" : ""
-                    }`}
-                  >
-                    🌿
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                  {/* 식물 이미지 */}
+                  <div className="h-48 bg-[#FBEFDD] flex items-center justify-center">
+                    {plant.image_url ? (
+                      <img
+                        src={plant.image_url}
+                        alt={plant.name}
+                        className="h-full w-auto object-contain"
+                        onError={(e) => {
+                          console.error(
+                            "Image failed to load:",
+                            plant.image_url
+                          );
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.nextElementSibling?.classList.remove(
+                            "hidden"
+                          );
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`text-4xl text-gray-400 ${
+                        plant.image_url ? "hidden" : ""
+                      }`}
+                    >
+                      🌿
+                    </div>
+                  </div>
+
+                  {/* 식물 정보 */}
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {plant.name}
+                    </h3>
                   </div>
                 </div>
-
-                {/* 식물 정보 */}
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {plant.name}
-                  </h3>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 

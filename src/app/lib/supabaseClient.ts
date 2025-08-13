@@ -10,6 +10,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+if (typeof window !== "undefined") {
+  const originalDebug = console.debug;
+  const originalLog = console.log;
+
+  const blockIfGoTrue = (args: any[]) =>
+    typeof args[0] === "string" && args[0].includes("GoTrueClient");
+
+  console.debug = (...args) => {
+    if (blockIfGoTrue(args)) return;
+    originalDebug(...args);
+  };
+
+  console.log = (...args) => {
+    if (blockIfGoTrue(args)) return;
+    originalLog(...args);
+  };
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
