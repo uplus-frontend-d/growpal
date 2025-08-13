@@ -34,8 +34,10 @@ const CalendarPage = () => {
     setTodayActivities(getActivitiesByDate(selectedDate));
   };
 
-  const getActivitiesByDate = (target: Date) => {
+  const getActivitiesByDate = (target: Date | undefined) => {
+    if (!target) return [];
     const dateStr = formatDateToYMD(target);
+
     return activities
       .filter(
         (activity) =>
@@ -44,11 +46,16 @@ const CalendarPage = () => {
           (activity.type === "todo" && activity.due_date === dateStr)
       )
       .sort((a, b) => {
-        const aTime = new Date(a.created_at).getTime();
-        const bTime = new Date(b.created_at).getTime();
-        return bTime - aTime; // 내림차순
+        const aTime = new Date(a.created_at ?? 0).getTime();
+        const bTime = new Date(b.created_at ?? 0).getTime();
+        return bTime - aTime;
       });
   };
+
+  useEffect(() => {
+    if (!date || !activities.length) return;
+    setTodayActivities(getActivitiesByDate(date));
+  }, [activities, date]);
 
   // 초기 로딩: 오늘 날짜
   useEffect(() => {
@@ -167,12 +174,12 @@ const CalendarPage = () => {
                         ? activity.task_type
                         : "다이어리"}
                     </div>
-                    {activity.type === "todo" && (
+                    {activity.type === "todo" && activity.plants?.name && (
                       <div className="text-muted-foreground text-xs">
                         {activity?.plants.name}
                       </div>
                     )}
-                    {activity.type === "diary" && (
+                    {activity.type === "diary" && activity.plants?.name && (
                       <div className="mt-1 text-xs line-clamp-2">
                         {activity?.plants.name + " | " + activity?.note}
                       </div>

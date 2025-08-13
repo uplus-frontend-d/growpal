@@ -137,13 +137,20 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           date: targetDateStr,
         });
 
-        const activities: Activity[] = rawTodos.map((todo) => ({
-          id: todo.id,
-          type: "todo",
-          plant_id: todo.plant_id,
-          task_type: todo.task_type,
-          due_date: todo.due_date,
-        }));
+        const activities: Activity[] = rawTodos
+          .map((todo) => ({
+            id: todo.id,
+            type: "todo",
+            plant_id: todo.plant_id,
+            task_type: todo.task_type,
+            due_date: todo.due_date,
+            created_at: todo.created_at,
+          }))
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at ?? 0).getTime();
+            const bTime = new Date(b.created_at ?? 0).getTime();
+            return bTime - aTime;
+          });
 
         updateActivities(activities, targetDateStr);
       } else {
@@ -162,13 +169,19 @@ const AddTodoModal = ({ date, onClose }: AddTodoModalProps) => {
           date: targetDateStr,
         });
 
-        const activities: Activity[] = rawDiaries.map((diary) => ({
-          id: diary.id,
-          type: "diary",
-          plant_id: diary.plant_id,
-          created_at: diary.created_at,
-          note: diary.note,
-        }));
+        const activities: Activity[] = rawDiaries
+          .map((diary) => ({
+            id: diary.id,
+            type: "diary",
+            plant_id: diary.plant_id,
+            created_at: diary.created_at,
+            note: diary.note,
+          }))
+          .sort((a, b) => {
+            const aTime = new Date(a.created_at ?? 0).getTime();
+            const bTime = new Date(b.created_at ?? 0).getTime();
+            return bTime - aTime;
+          });
 
         updateActivities(activities, targetDateStr);
       }
