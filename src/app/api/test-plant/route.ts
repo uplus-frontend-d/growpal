@@ -9,6 +9,10 @@ export async function POST(req: NextRequest) {
       process.env.PLANT_ID_API_KEY ? "있음" : "없음"
     );
     console.log(
+      "NEXT_PLANT_ID_API_KEY:",
+      process.env.NEXT_PLANT_ID_API_KEY ? "있음" : "없음"
+    );
+    console.log(
       "OPENROUTER_API_KEY:",
       process.env.OPENROUTER_API_KEY ? "있음" : "없음"
     );
