@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useUserStore } from "./lib/userStore";
 import { useUserData } from "./lib/useUserData";
 import Navigation from "./components/Navigation";
@@ -10,6 +11,14 @@ export default function Home() {
   const { user, isLoading } = useUserStore();
   const { getUserData } = useUserData();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  // 로그인된 사용자를 /plants 페이지로 리다이렉트
+  useEffect(() => {
+    if (user && !isLoading) {
+      router.push("/plants");
+    }
+  }, [user, isLoading, router]);
 
   // 페이지 로드 시 사용자 상태 확인
   useEffect(() => {
@@ -104,37 +113,26 @@ export default function Home() {
               </div>
             </div>
           </div>
-        ) : user ? (
-          /* 로그인된 상태 - 환영 메시지 */
-          <div className="w-80">
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-              <div className="text-center">
-                <div className="text-4xl mb-3">🌱</div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                  Plant Care에 오신 것을 환영합니다.
-                </h1>
-                <p className="text-gray-600 text-sm">
-                  Plant Care에 오신 것을 환영합니다.
+        ) : (
+          !user && (
+            /* 로그인되지 않은 상태 */
+            <div className="w-80">
+              {/* 타이틀 섹션 */}
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  Welcome to Plant Care
+                </h2>
+                <p className="text-gray-600 text-base">
+                  Your personal guide to nurturing
+                </p>
+                <p className="text-gray-600 text-base">
+                  your green companions.
                 </p>
               </div>
+              {/* 로그인 폼 */}
+              <LoginForm />
             </div>
-          </div>
-        ) : (
-          /* 로그인되지 않은 상태 */
-          <div className="w-80">
-            {/* 타이틀 섹션 */}
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Welcome to Plant Care
-              </h2>
-              <p className="text-gray-600 text-base">
-                Your personal guide to nurturing
-              </p>
-              <p className="text-gray-600 text-base">your green companions.</p>
-            </div>
-            {/* 로그인 폼 */}
-            <LoginForm />
-          </div>
+          )
         )}
       </div>
 
