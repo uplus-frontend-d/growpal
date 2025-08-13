@@ -15,10 +15,10 @@ export async function POST(
       return NextResponse.json({ error: "email is required" }, { status: 400 });
     }
 
-    // users 테이블에서 해당 이메일이 존재하는지 확인
+    // users 테이블에서 해당 이메일이 존재하는지 확인 (provider 정보도 포함)
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, email")
+      .select("id, email, provider")
       .eq("email", email)
       .single();
 
@@ -50,6 +50,23 @@ export async function POST(
             "등록되지 않은 이메일 주소입니다. 회원가입을 먼저 진행해주세요.",
         },
         { status: 404 }
+      );
+    }
+
+    // provider 체크 - OAuth 사용자는 비밀번호 찾기 불가
+    if (userData.provider && userData.provider !== "email") {
+      let providerName = "소셜 계정";
+      if (userData.provider.includes("google")) {
+        providerName = "Google";
+      } else if (userData.provider.includes("github")) {
+        providerName = "GitHub";
+      }
+
+      return NextResponse.json(
+        {
+          error: `${providerName}으로 가입한 계정은 비밀번호 찾기를 사용할 수 없습니다. ${providerName} 로그인을 이용해주세요.`,
+        },
+        { status: 400 }
       );
     }
 

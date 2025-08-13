@@ -374,6 +374,13 @@ export default function LoginForm() {
           Forgot Password
         </a>
       </div>
+
+      {/* OAuth 사용자를 위한 안내 메시지 */}
+      <div className="text-center mt-4">
+        <p className="text-xs text-gray-500">
+          Google 또는 GitHub로 가입한 계정은 비밀번호 찾기를 사용할 수 없습니다.
+        </p>
+      </div>
     </div>
   );
 }
