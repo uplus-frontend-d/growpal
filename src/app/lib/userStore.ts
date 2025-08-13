@@ -5,7 +5,7 @@ import { persist } from "zustand/middleware";
 interface CustomUser {
   id: string;
   email: string;
-  provider?: string;
+  provider?: string; // 쉼표로 구분된 provider 문자열 (예: "google,github")
   created_at: string;
 }
 

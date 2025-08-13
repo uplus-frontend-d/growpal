@@ -3,7 +3,7 @@
 import { useUserStore } from "../lib/userStore";
 import { useUserData } from "../lib/useUserData";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -15,12 +15,21 @@ export default function PrivateRoute({ children }: PrivateRouteProps) {
   const router = useRouter();
   const [isInitialCheck, setIsInitialCheck] = useState(true); // 초기 체크 상태
 
+  // getUserData를 안전하게 호출하기 위한 콜백
+  const safeGetUserData = useCallback(async () => {
+    try {
+      await getUserData();
+    } catch (error) {
+      console.error("사용자 데이터 가져오기 실패:", error);
+    }
+  }, [getUserData]);
+
   // 페이지 로드 시 사용자 상태 확인
   useEffect(() => {
     const checkUser = async () => {
       if (!user) {
         // persist 데이터가 없으면 실제 인증 상태 확인
-        await getUserData();
+        await safeGetUserData();
       }
       // 초기 체크 완료
       setIsInitialCheck(false);

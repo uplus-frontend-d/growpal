@@ -30,6 +30,7 @@ export default function AddPlantPage() {
     선인장: "/images/plants/Cactus.png",
     허브: "/images/plants/Herb.png",
     관엽식물: "/images/plants/Foliage.png",
+    기타: "/images/plants/Miscell.png",
   };
 
   // 실제 로그인한 사용자 ID 사용 (없으면 테스트용 UUID)
@@ -142,6 +143,7 @@ export default function AddPlantPage() {
                   <option value="선인장">선인장</option>
                   <option value="허브">허브</option>
                   <option value="관엽식물">관엽식물</option>
+                  <option value="기타">기타</option>
                 </select>
               </div>
             </div>

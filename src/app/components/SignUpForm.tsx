@@ -32,39 +32,34 @@ export default function SignUpForm() {
     }
 
     try {
-      // 1. Supabase Auth로 회원가입
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+      // API를 통한 회원가입
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       });
 
-      if (authError) {
-        setError(authError.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        // 이미 가입된 이메일인 경우 provider 정보 포함 에러 메시지 표시
+        if (response.status === 409 && data.provider) {
+          setError(data.error);
+        } else {
+          setError(data.error || "회원가입 중 오류가 발생했습니다.");
+        }
         return;
       }
 
-      if (authData.user) {
-        // 2. users 테이블에 사용자 정보 저장
-        const { error: insertError } = await supabase.from("users").insert([
-          {
-            id: authData.user.id,
-            email: authData.user.email,
-            provider: authData.user.app_metadata?.provider || "email",
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-        if (insertError) {
-          console.error("사용자 데이터 저장 실패:", insertError);
-          setError("사용자 데이터 저장 중 오류가 발생했습니다.");
-          return;
-        }
-
-        setSuccess(true);
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
-      }
+      setSuccess(true);
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
     } catch (error) {
       console.error("회원가입 오류:", error);
       setError("회원가입 중 오류가 발생했습니다.");
