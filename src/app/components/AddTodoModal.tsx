@@ -60,7 +60,7 @@ const ImageUploadForm = () => {
       <div className="screen-header flex justify-between items-center mb-4">
         <div className="screen-controls flex gap-2"></div>
       </div>
-      <div className="screen-content grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="screen-content grid grid-cols-1 gap-4">
         <div
           className="upload-area border-2 border-dashed border-slate-300 rounded-lg p-6 text-center text-slate-400 flex flex-col justify-center items-center min-h-[200px] bg-white cursor-pointer"
           onClick={triggerUpload}
