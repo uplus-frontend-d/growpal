@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { useNotificationCheck } from "../hooks/useNotificationCheck";
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +10,9 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, title, subtitle }: LayoutProps) {
+  // 알림 체크 훅 사용
+  useNotificationCheck();
+
   return (
     <div className=" bg-gray-50">
       {/* 메인 콘텐츠 */}

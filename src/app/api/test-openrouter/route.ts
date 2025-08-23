@@ -98,113 +98,70 @@ export async function POST(req: NextRequest) {
               role: "user",
               content: `당신은 식물 관리 전문가입니다. 다음 Plant.id 분석 결과를 바탕으로 최적의 관리 팁을 제공해주세요:
 
-🌱 **식물 기본 정보**
-- 식물 이름: ${testData.plantName}
-- 한국어 이름: ${testData.koreanName}
+식물명: ${testData.plantName} (${testData.koreanName})
+건강 상태: ${testData.healthStatus} (${testData.healthProbability}% 확률)
+감지된 문제: ${testData.diseases.join(", ")}
+물주기 정보: ${testData.wateringInfo}
+현재 계절: ${currentSeason}
 
-💧 **Plant.id 물주기 정보**
-- 적정 물주기: ${testData.wateringInfo}
+위 정보를 바탕으로 다음을 포함한 종합적인 관리 팁을 제공해주세요:
+1. 현재 상태에 대한 분석
+2. 감지된 문제에 대한 해결 방안
+3. 계절별 관리 주의사항
+4. 물주기 및 비료 관리 팁
+5. 예방적 관리 방법
 
-🏥 **Plant.id 건강 진단**
-- 건강 상태: ${testData.healthStatus === "healthy" ? "건강함" : "주의 필요"}
-- 건강 확률: ${testData.healthProbability}%
-
-🔍 **Plant.id 감지된 문제점**
-${
-  diseaseBasedTips.length > 0
-    ? diseaseBasedTips.map((tip) => `- ${tip}`).join("\n")
-    : "- 특별한 문제점 없음"
-}
-- ${wateringTip}
-
-🌸 **현재 계절**: ${currentSeason}
-
-위의 Plant.id 과학적 분석 결과를 종합하여, 현재 계절(${currentSeason})에 맞는 **실용적이고 구체적인** 관리 팁 3개를 제공해주세요.
-
-다음 형식으로 JSON 응답해주세요:
-{
-  "additional_care_tips": ["구체적 실행 팁1", "계절별 맞춤 팁2", "문제 해결 팁3"]
-}
-
-**중요 원칙**:
-✅ Plant.id 진단 결과를 반드시 반영하세요
-✅ 현재 계절(${currentSeason})에 특화된 관리법 포함
-✅ 건강 문제가 있다면 우선적으로 해결 방안 제시
-✅ 물주기 정보를 고려한 수분 관리 조언
-✅ 실행 가능하고 구체적인 방법만 제시
-✅ 정확히 3개의 팁만 제공
-✅ 한국어로 응답
-✅ JSON 형식만 응답`,
+답변은 한국어로 작성하고, 실용적이고 구체적인 조언을 제공해주세요.`,
             },
           ],
+          max_tokens: 1000,
           temperature: 0.7,
-          max_tokens: 500,
         }),
       }
-    );
-
-    console.log(
-      "OpenRouter 응답 상태:",
-      openRouterResponse.status,
-      openRouterResponse.statusText
     );
 
     if (!openRouterResponse.ok) {
       const errorText = await openRouterResponse.text();
       console.error("OpenRouter API 오류:", errorText);
-      throw new Error(`OpenRouter API 오류: ${openRouterResponse.status}`);
+      return NextResponse.json(
+        { error: "OpenRouter API 호출에 실패했습니다." },
+        { status: 500 }
+      );
     }
 
-    const openRouterData = await openRouterResponse.json();
-    console.log("OpenRouter 응답 전체:", openRouterData);
+    const openRouterResult = await openRouterResponse.json();
+    const aiTips = openRouterResult.choices?.[0]?.message?.content || "";
 
-    const generatedText = openRouterData.choices[0]?.message?.content || "";
-    console.log("생성된 텍스트:", generatedText);
-
-    // JSON 파싱
-    let parsedResult;
-    try {
-      console.log("JSON 파싱 시도 중...");
-      // JSON 블록을 찾기 위한 정규식
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        console.log("JSON 매치 발견:", jsonMatch[0]);
-        parsedResult = JSON.parse(jsonMatch[0]);
-        console.log("파싱된 JSON:", parsedResult);
-      } else {
-        throw new Error("JSON 형식을 찾을 수 없습니다");
-      }
-    } catch (parseError) {
-      console.error("JSON 파싱 실패:", parseError);
-      // 파싱 실패 시 기본 응답
-      parsedResult = {
-        additional_care_tips: [
-          "OpenRouter 응답 파싱에 실패했습니다",
-          "기본 관리법을 따라주세요",
-          "전문가의 조언을 구해보세요",
-        ],
-      };
-    }
-
-    // 최대 3개로 제한
-    if (parsedResult.additional_care_tips) {
-      parsedResult.additional_care_tips =
-        parsedResult.additional_care_tips.slice(0, 3);
-    }
-
-    console.log("최종 OpenRouter 팁:", parsedResult.additional_care_tips);
+    // 종합적인 팁 구성
+    const comprehensiveTips = [
+      ...diseaseBasedTips,
+      wateringTip,
+      `계절별 관리: 현재 ${currentSeason}이므로 계절에 맞는 관리가 필요합니다.`,
+      aiTips,
+    ];
 
     return NextResponse.json({
-      additional_care_tips: parsedResult.additional_care_tips || [],
+      success: true,
+      tips: comprehensiveTips,
+      ai_analysis: aiTips,
+      plant_info: {
+        name: testData.plantName,
+        korean_name: testData.koreanName,
+        health_status: testData.healthStatus,
+        health_probability: testData.healthProbability,
+        diseases: testData.diseases,
+        watering_info: testData.wateringInfo,
+        current_season: currentSeason,
+      },
     });
   } catch (error) {
-    console.error("OpenRouter 테스트 중 오류 발생:", error);
+    console.error("OpenRouter 테스트 오류:", error);
     return NextResponse.json(
-      {
-        error: "OpenRouter 테스트 중 오류가 발생했습니다.",
-        additional_care_tips: [],
-      },
+      { error: "테스트 처리 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
+
+
+
