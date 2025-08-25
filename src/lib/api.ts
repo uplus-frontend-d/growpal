@@ -406,6 +406,10 @@ export interface UpdatePlantTodoResponse {
   is_done: boolean;
   executed_at: string;
   created_at: string;
+  plant_updated?: {
+    id: string;
+    last_watered_at: string;
+  };
 }
 
 export interface DeletePlantTodoRequest {

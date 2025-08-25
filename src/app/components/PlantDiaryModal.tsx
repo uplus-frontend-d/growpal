@@ -108,7 +108,7 @@ const PlantDiaryModal = ({
   preselectedPlantId,
   onDiaryAdded,
 }: PlantDiaryModalProps) => {
-  const { user } = useUserStore();
+  const { user, setUser } = useUserStore();
   const { plants, setPlants } = usePlantStore();
   const { activity, setActivity, resetActivity, updateActivities } =
     useActivityStore();
@@ -121,9 +121,21 @@ const PlantDiaryModal = ({
     setError(null);
 
     console.log("🚀 handleSubmit 시작!");
+    console.log("🚀 user 상태:", user);
+    console.log("🚀 user?.id:", user?.id);
     console.log("🚀 activity.type:", activity.type);
     console.log("🚀 activity.note:", activity.note);
     console.log("🚀 activity.image_url:", activity.image_url);
+    console.log("🚀 activity.plant_id:", activity.plant_id);
+    console.log("🚀 preselectedPlantId:", preselectedPlantId);
+
+    // 사용자 ID 확인
+    if (!user?.id) {
+      setError(
+        "사용자 정보를 찾을 수 없습니다. 페이지를 새로고침하거나 다시 로그인해주세요."
+      );
+      return;
+    }
 
     try {
       setLoading(true);
@@ -175,7 +187,7 @@ const PlantDiaryModal = ({
         });
 
         const rawDiaries = await getUserDiariesByExactDate({
-          user_id: user?.id!,
+          user_id: user.id,
           date: targetDateStr,
         });
 

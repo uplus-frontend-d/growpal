@@ -12,7 +12,7 @@ export async function PATCH(
   { params }: { params: Promise<{ plant_id: string; todo_id: string }> }
 ): Promise<NextResponse<UpdatePlantTodoResponse | { error: string }>> {
   try {
-    const { todo_id } = await params;
+    const { plant_id, todo_id } = await params;
     const body: UpdatePlantTodoRequest = await req.json();
     const { is_done } = body;
 
@@ -32,21 +32,47 @@ export async function PATCH(
       updateData.executed_at = null;
     }
 
-    const { data, error } = await supabase
+    const { data: todoData, error: todoError } = await supabase
       .from("plant_todos")
       .update(updateData)
       .eq("id", todo_id)
       .select()
       .single();
 
-    if (error) {
-      if (error.code === "PGRST116") {
+    if (todoError) {
+      if (todoError.code === "PGRST116") {
         return NextResponse.json({ error: "Todo not found" }, { status: 404 });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: todoError.message }, { status: 500 });
     }
 
-    return NextResponse.json(data, { status: 200 });
+    // 물주기 todo 완료 시 plant의 last_watered_at 업데이트
+    if (is_done && todoData.task_type === "watering") {
+      const { error: plantError } = await supabase
+        .from("plants")
+        .update({ last_watered_at: new Date().toISOString() })
+        .eq("id", plant_id);
+
+      if (plantError) {
+        console.error("Failed to update plant last_watered_at:", plantError);
+        // todo는 성공했지만 plant 업데이트 실패는 경고만 하고 계속 진행
+      } else {
+        // 성공적으로 업데이트된 경우 응답에 plant 업데이트 정보 포함
+        const currentTime = new Date().toISOString();
+        return NextResponse.json(
+          {
+            ...todoData,
+            plant_updated: {
+              id: plant_id,
+              last_watered_at: currentTime,
+            },
+          },
+          { status: 200 }
+        );
+      }
+    }
+
+    return NextResponse.json(todoData, { status: 200 });
   } catch (error) {
     return NextResponse.json(
       { error: "Invalid request body" },
