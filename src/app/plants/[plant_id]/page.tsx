@@ -47,6 +47,40 @@ export default function PlantDetailPage() {
     string | null
   >(null);
 
+  // 질병별 치료법 가이드 함수
+  const getTreatmentGuide = (diseaseName: string): string => {
+    const lowerDiseaseName = diseaseName.toLowerCase();
+
+    if (
+      lowerDiseaseName.includes("fungi") ||
+      lowerDiseaseName.includes("곰팡이")
+    ) {
+      return "곰팡이 제거제를 사용하고, 통풍을 개선하여 습도를 낮추세요. 감염된 부분은 제거하고 격리하세요.";
+    } else if (
+      lowerDiseaseName.includes("animalia") ||
+      lowerDiseaseName.includes("해충")
+    ) {
+      return "천연 살충제나 비누물을 사용하여 해충을 제거하세요. 정기적인 검사로 재발을 방지하세요.";
+    } else if (
+      lowerDiseaseName.includes("water excess") ||
+      lowerDiseaseName.includes("과수분")
+    ) {
+      return "물주기를 줄이고 배수를 개선하세요. 뿌리가 썩었다면 감염된 부분을 제거하고 새로운 토양에 심으세요.";
+    } else if (lowerDiseaseName.includes("mechanical damage")) {
+      return "손상된 부분을 깔끔하게 제거하고, 상처 부위에 살균제를 바르세요. 새로운 성장을 기다리세요.";
+    } else if (lowerDiseaseName.includes("leaf spot")) {
+      return "감염된 잎을 제거하고, 살균제를 사용하세요. 물이 잎에 직접 닿지 않도록 주의하세요.";
+    } else if (lowerDiseaseName.includes("yellowing")) {
+      return "영양 부족, 과습, 건조 등 원인을 파악하고 적절한 대책을 세우세요. 비료나 물주기 패턴을 조정하세요.";
+    } else if (lowerDiseaseName.includes("root rot")) {
+      return "과습을 피하고 배수를 개선하세요. 썩은 뿌리를 제거하고 새로운 토양에 심으세요.";
+    } else if (lowerDiseaseName.includes("powdery mildew")) {
+      return "통풍을 개선하고 습도를 낮추세요. 흰가루병 전용 살균제를 사용하세요.";
+    } else {
+      return "식물의 건강 상태를 정기적으로 관찰하고, 적절한 환경 조건을 유지하세요.";
+    }
+  };
+
   const { activities, setActivities } = useActivityStore();
 
   // 식물 이미지 URL 계산 (종류 기반 이미지 우선, 없으면 업로드된 이미지)
@@ -670,7 +704,7 @@ export default function PlantDetailPage() {
                           </label>
                           <div className="space-y-2">
                             {plantIdAnalysis.care_tips.detected_diseases
-                              .slice(0, 3)
+                              .slice(0, 2)
                               .map((disease: string, index: number) => (
                                 <div
                                   key={index}
@@ -684,7 +718,7 @@ export default function PlantDetailPage() {
                         </div>
                       )}
 
-                    {/* 치료 가이드 */}
+                    {/* 치료 가이드 - Plant.id treatment_info 파싱 */}
                     {plantIdAnalysis.care_tips?.treatment_info &&
                       Object.keys(plantIdAnalysis.care_tips.treatment_info)
                         .length > 0 && (
