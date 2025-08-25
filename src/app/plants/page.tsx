@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getUserPlants, deletePlant, type Plant } from "@/lib/api";
 import Layout from "@/app/components/Layout";
 import { useUserStore } from "@/app/lib/userStore";
+import NotificationButton from "@/app/components/NotificationButton";
 
 export default function PlantsPage() {
   const router = useRouter();
@@ -102,7 +103,8 @@ export default function PlantsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-3">
+              <NotificationButton />
               <button
                 onClick={() => (window.location.href = "/plants/add")}
                 className="w-[150px] bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"

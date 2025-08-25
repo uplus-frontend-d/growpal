@@ -75,7 +75,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<any>> {
 
     const { searchParams } = new URL(req.url);
     const user_id = searchParams.get("user_id");
-
     console.log("User ID from query params:", user_id);
 
     let query = supabase.from("plants").select("*");
