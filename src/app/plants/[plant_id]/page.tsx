@@ -11,7 +11,7 @@ import {
   updatePlantTodo,
 } from "@/lib/api";
 import Layout from "@/app/components/Layout";
-import AddTodoModal from "@/app/components/AddTodoModal";
+import PlantDiaryModal from "@/app/components/PlantDiaryModal";
 import { taskTypeImageMap } from "@/app/calendar/page";
 import {
   Activity,
@@ -20,6 +20,10 @@ import {
 } from "@/app/stores/activityStore";
 
 export default function PlantDetailPage() {
+  // 테스트 모드 설정 (여기서 true/false로 제어)
+
+  const IS_TEST_MODE = false; // 테스트 중에는 true, 실제 사용 시에는 false
+
   const params = useParams();
   const router = useRouter();
   const plantId = params.plant_id as string;
@@ -158,16 +162,56 @@ export default function PlantDetailPage() {
   };
 
   // Plant.id 분석 함수
-  const analyzeWithPlantId = async (imageUrl: string) => {
+  const analyzeWithPlantId = async (
+    imageUrl: string,
+    forceNewAnalysis = false
+  ) => {
+    if (IS_TEST_MODE) {
+      console.log("🧪 테스트 모드: Plant.id 분석 API 호출 비활성화됨");
+      console.log("🧪 테스트 모드: 더미 분석 데이터 생성 중...");
+
+      // 더미데이터 생성 (이미지 URL과 다이어리 내용 포함)
+      const dummyAnalysis = {
+        korean_name: "테스트 식물",
+        plant_species: "테스트 종",
+        mapped_species: "몬스테라",
+        health_score: 85,
+        confidence: 90,
+        watering_frequency: "주 2-3회",
+        care_tips: {
+          plant_id_tips: [
+            "테스트 모드: 이미지 분석이 비활성화되어 있습니다",
+            "실제 사용 시에는 Plant.id API가 호출됩니다",
+            "현재 참고 이미지: " + imageUrl,
+            "이미지 URL 길이: " + (imageUrl?.length || 0) + "자",
+          ],
+          openrouter_tips: [
+            "테스트 모드: OpenRouter AI 분석도 비활성화됨",
+            "실제 사용 시 AI 맞춤 관리 팁이 제공됩니다",
+            "참고 이미지: " + imageUrl,
+          ],
+        },
+        suggested_new_types: ["몬스테라", "스킨답서스", "필로덴드론"],
+      };
+
+      setPlantIdAnalysis(dummyAnalysis);
+      setLastAnalyzedImageUrl(imageUrl);
+      setCachedAnalysis(imageUrl, dummyAnalysis);
+      console.log("🧪 테스트 모드: 더미 분석 데이터 생성 완료", dummyAnalysis);
+      return;
+    }
+
     console.log("analyzeWithPlantId 호출됨:", imageUrl);
 
-    // 먼저 캐시에서 확인
-    const cachedResult = getCachedAnalysis(imageUrl);
-    if (cachedResult && cachedResult.analysis) {
-      console.log("캐시된 분석 결과 사용:", imageUrl);
-      setPlantIdAnalysis(cachedResult.analysis);
-      setLastAnalyzedImageUrl(imageUrl);
-      return;
+    // 강제 새 분석이 아닐 때만 캐시 확인
+    if (!forceNewAnalysis) {
+      const cachedResult = getCachedAnalysis(imageUrl);
+      if (cachedResult && cachedResult.analysis) {
+        console.log("캐시된 분석 결과 사용:", imageUrl);
+        setPlantIdAnalysis(cachedResult.analysis);
+        setLastAnalyzedImageUrl(imageUrl);
+        return;
+      }
     }
 
     try {
@@ -314,17 +358,32 @@ export default function PlantDetailPage() {
         }
       }
 
+      // 이미지 파일명으로 비교하여 새로운 이미지인지 확인
+      const getImageFileName = (url: string) => {
+        return url.split("/").pop()?.split("?")[0] || "";
+      };
+
+      const currentImageFileName = getImageFileName(
+        latestDiary.image_url || ""
+      );
+      const lastAnalyzedImageFileName = getImageFileName(
+        lastAnalyzedImageUrl || ""
+      );
+      const isNewImage = currentImageFileName !== lastAnalyzedImageFileName;
+
       // 새로운 이미지일 때만 분석 실행
-      if (
-        latestDiary.image_url &&
-        latestDiary.image_url !== lastAnalyzedImageUrl
-      ) {
-        console.log("새로운 이미지 감지, AI 분석 시작");
+      if (latestDiary.image_url && isNewImage) {
+        console.log("새로운 이미지 감지, AI 분석 시작:", {
+          currentImage: currentImageFileName,
+          lastAnalyzedImage: lastAnalyzedImageFileName,
+        });
         analyzeWithPlantId(latestDiary.image_url);
       } else {
         console.log("이미지가 없거나 이미 분석된 이미지:", {
           hasImage: !!latestDiary.image_url,
-          isNewImage: latestDiary.image_url !== lastAnalyzedImageUrl,
+          isNewImage,
+          currentImage: currentImageFileName,
+          lastAnalyzedImage: lastAnalyzedImageFileName,
         });
       }
     } else {
@@ -505,197 +564,169 @@ export default function PlantDetailPage() {
               </div>
 
               {/* Plant.id 분석 정보 */}
-              {(plantIdAnalysis || analysisLoading) && (
-                <div className="border-t pt-6 mt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">🔬</span>
-                    AI 건강 분석 정보
-                    <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded-full border border-blue-200 ml-2">
-                      Plant.id
-                    </span>
-                  </h3>
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="mr-2">🔬</span>
+                  AI 건강 분석 정보
+                  <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded-full border border-blue-200 ml-2">
+                    Plant.id
+                  </span>
+                </h3>
 
-                  {analysisLoading && (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className="ml-3 text-gray-600">분석 중...</span>
+                {analysisLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">분석 중...</span>
+                  </div>
+                ) : plantIdAnalysis ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 종 정보 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        종 정보
+                      </label>
+                      <p className="text-gray-900">
+                        {plantIdAnalysis.korean_name ||
+                          plantIdAnalysis.plant_species ||
+                          "분석 중"}
+                      </p>
                     </div>
-                  )}
 
-                  {plantIdAnalysis && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* 종 정보 */}
+                    {/* AI 분석 기반 Species 매핑 */}
+                    {plantIdAnalysis.mapped_species && (
                       <div>
                         <label className="block text-sm font-medium text-gray-500 mb-1">
-                          종 정보
+                          AI 추천 종류
                         </label>
-                        <p className="text-gray-900">
-                          {plantIdAnalysis.korean_name ||
-                            plantIdAnalysis.plant_species ||
-                            "분석 중"}
-                        </p>
-                      </div>
-
-                      {/* AI 분석 기반 Species 매핑 */}
-                      {plantIdAnalysis.mapped_species && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-500 mb-1">
-                            AI 추천 종류
-                          </label>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-gray-900 font-medium">
-                              {plantIdAnalysis.mapped_species}
-                            </span>
-                            <button
-                              onClick={() =>
-                                updatePlantSpecies(
-                                  plantIdAnalysis.mapped_species
-                                )
-                              }
-                              className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
-                            >
-                              적용하기
-                            </button>
-                          </div>
-                          {plantIdAnalysis.suggested_new_types &&
-                            plantIdAnalysis.suggested_new_types.length > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {plantIdAnalysis.suggested_new_types.join(", ")}
-                              </p>
-                            )}
-                        </div>
-                      )}
-
-                      {/* 건강도 */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">
-                          건강도
-                        </label>
-                        <div className="flex items-center">
-                          <div className="w-16 h-3 bg-gray-200 rounded-full mr-3">
-                            <div
-                              className="h-3 bg-green-500 rounded-full transition-all duration-300"
-                              style={{
-                                width: `${
-                                  plantIdAnalysis.health_score
-                                    ? (plantIdAnalysis.health_score / 10) * 100
-                                    : 0
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
+                        <div className="flex items-center space-x-2">
                           <span className="text-gray-900 font-medium">
-                            {plantIdAnalysis.health_score
-                              ? Math.round(
-                                  (plantIdAnalysis.health_score / 10) * 100
-                                )
-                              : 0}
-                            점
-                            <span className="text-gray-500 text-sm ml-1">
-                              (
-                              {(plantIdAnalysis.confidence || 0) >= 50
-                                ? `${plantIdAnalysis.confidence}% 신뢰도`
-                                : "낮은 신뢰도"}
-                              )
-                            </span>
+                            {plantIdAnalysis.mapped_species}
                           </span>
+                          <button
+                            onClick={() =>
+                              updatePlantSpecies(plantIdAnalysis.mapped_species)
+                            }
+                            className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
+                          >
+                            적용하기
+                          </button>
+                        </div>
+                        {plantIdAnalysis.suggested_new_types &&
+                          plantIdAnalysis.suggested_new_types.length > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {plantIdAnalysis.suggested_new_types.join(", ")}
+                            </p>
+                          )}
+                      </div>
+                    )}
+
+                    {/* 건강도 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        건강도
+                      </label>
+                      <div className="flex items-center">
+                        <div className="w-16 h-3 bg-gray-200 rounded-full mr-3">
+                          <div
+                            className="h-3 bg-green-500 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${
+                                plantIdAnalysis.health_score
+                                  ? (plantIdAnalysis.health_score / 10) * 100
+                                  : 0
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+                        <span className="text-gray-900 font-medium">
+                          {plantIdAnalysis.health_score
+                            ? Math.round(
+                                (plantIdAnalysis.health_score / 10) * 100
+                              )
+                            : 0}
+                          점
+                          <span className="text-gray-500 text-sm ml-1">
+                            (
+                            {(plantIdAnalysis.confidence || 0) >= 50
+                              ? `${plantIdAnalysis.confidence}% 신뢰도`
+                              : "낮은 신뢰도"}
+                            )
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 적정 물주기 정보 */}
+                    {plantIdAnalysis.watering_frequency && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-500 mb-2">
+                          적정 물주기
+                        </label>
+                        <div className="flex items-start space-x-2 text-sm">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                          <p className="text-gray-700">
+                            {plantIdAnalysis.watering_frequency}
+                          </p>
                         </div>
                       </div>
+                    )}
 
-                      {/* 적정 물주기 정보 */}
-                      {plantIdAnalysis.watering_frequency && (
+                    {/* 병충해 정보 */}
+                    {plantIdAnalysis.care_tips?.plant_id_tips &&
+                      plantIdAnalysis.care_tips.plant_id_tips.length > 0 && (
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-500 mb-2">
-                            적정 물주기
+                            감지된 문제점
                           </label>
-                          <div className="flex items-start space-x-2 text-sm">
-                            <div className="w-2 h-2 bg-blue-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                            <p className="text-gray-700">
-                              {plantIdAnalysis.watering_frequency}
-                            </p>
+                          <div className="space-y-2">
+                            {plantIdAnalysis.care_tips.plant_id_tips
+                              .slice(0, 2)
+                              .map((tip: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="flex items-start space-x-2 text-sm"
+                                >
+                                  <div className="w-2 h-2 bg-orange-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                                  <p className="text-gray-700">{tip}</p>
+                                </div>
+                              ))}
                           </div>
                         </div>
                       )}
 
-                      {/* 병충해 정보 */}
-                      {plantIdAnalysis.care_tips?.plant_id_tips &&
-                        plantIdAnalysis.care_tips.plant_id_tips.length > 0 && (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-500 mb-2">
-                              감지된 문제점
-                            </label>
-                            <div className="space-y-2">
-                              {plantIdAnalysis.care_tips.plant_id_tips
-                                .slice(0, 2)
-                                .map((tip: string, index: number) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-start space-x-2 text-sm"
-                                  >
-                                    <div className="w-2 h-2 bg-orange-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                                    <p className="text-gray-700">{tip}</p>
-                                  </div>
-                                ))}
-                            </div>
+                    {/* 하드코딩 맞춤 관리 팁 */}
+                    {plantIdAnalysis.care_tips?.hardcoded_tips &&
+                      plantIdAnalysis.care_tips.hardcoded_tips.length > 0 && (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-500 mb-2">
+                            맞춤 관리 팁
+                            <span className="text-xs text-green-500 bg-green-50 px-2 py-1 rounded-full border border-green-200 ml-2">
+                              🌱 맞춤 가이드
+                            </span>
+                          </label>
+                          <div className="space-y-2">
+                            {plantIdAnalysis.care_tips.hardcoded_tips
+                              .slice(0, 6)
+                              .map((tip: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="flex items-start space-x-2 text-sm"
+                                >
+                                  <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                                  <p className="text-gray-700">{tip}</p>
+                                </div>
+                              ))}
                           </div>
-                        )}
-
-                      {/* Plant.id 추가 관리 팁 */}
-                      {plantIdAnalysis.care_tips?.plant_id_tips &&
-                        plantIdAnalysis.care_tips.plant_id_tips.length > 2 && (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-500 mb-2">
-                              Plant.id 전문 관리 팁
-                              <span className="text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full border border-blue-200 ml-2">
-                                🔬 과학적 분석
-                              </span>
-                            </label>
-                            <div className="space-y-2">
-                              {plantIdAnalysis.care_tips.plant_id_tips
-                                .slice(2, 4)
-                                .map((tip: string, index: number) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-start space-x-2 text-sm"
-                                  >
-                                    <div className="w-2 h-2 bg-blue-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                                    <p className="text-gray-700">{tip}</p>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-
-                      {/* OpenRouter AI 맞춤 관리 팁 */}
-                      {plantIdAnalysis.care_tips?.openrouter_tips &&
-                        plantIdAnalysis.care_tips.openrouter_tips.length >
-                          0 && (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-500 mb-2">
-                              AI 맞춤 관리 팁
-                              <span className="text-xs text-purple-500 bg-purple-50 px-2 py-1 rounded-full border border-purple-200 ml-2">
-                                🤖 OpenRouter AI
-                              </span>
-                            </label>
-                            <div className="space-y-2">
-                              {plantIdAnalysis.care_tips.openrouter_tips
-                                .slice(0, 3)
-                                .map((tip: string, index: number) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-start space-x-2 text-sm"
-                                  >
-                                    <div className="w-2 h-2 bg-purple-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                                    <p className="text-gray-700">{tip}</p>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  )}
-                </div>
-              )}
+                        </div>
+                      )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="text-4xl mb-2">🔬</div>
+                    <p>이미지를 업로드하여 AI 건강 분석을 시작하세요</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -860,14 +891,62 @@ export default function PlantDetailPage() {
         </div>
       </div>
 
-      {/* AddTodoModal */}
+      {/* PlantDiaryModal */}
       {isModalOpen && (
-        <AddTodoModal
+        <PlantDiaryModal
           date={new Date()}
           onClose={() => {
             setIsModalOpen(false);
             // 모달 닫힌 후 데이터 새로고침
             loadPlantData();
+          }}
+          onDiaryAdded={(diary) => {
+            console.log("🚨 onDiaryAdded 호출됨:", diary);
+            console.log("🚨 IS_TEST_MODE:", IS_TEST_MODE);
+            console.log("🚨 diary.image_url:", diary.image_url);
+            console.log("🚨 diary.image_url 타입:", typeof diary.image_url);
+            console.log("🚨 diary.image_url 길이:", diary.image_url?.length);
+
+            // 이미지가 있으면 무조건 분석 시도 (캐시 무시)
+            if (diary.image_url) {
+              console.log("🚨 새로운 이미지 업로드: 무조건 분석 시도");
+              console.log("🚨 analyzeWithPlantId 호출 직전");
+              try {
+                analyzeWithPlantId(diary.image_url, true); // forceNewAnalysis = true
+                console.log("🚨 analyzeWithPlantId 호출 완료");
+              } catch (error) {
+                console.error("🚨 analyzeWithPlantId 호출 실패:", error);
+              }
+            } else {
+              console.log("🚨 이미지가 없음: 분석 시도 안 함");
+            }
+
+            // 새로운 다이어리를 activities에 추가
+            const newDiary: Activity = {
+              id: diary.id,
+              type: "diary",
+              plant_id: diary.plant_id,
+              note: diary.note || "",
+              created_at: new Date().toISOString(),
+              image_url: diary.image_url,
+              plants: {
+                id: plant?.id || "",
+                name: plant?.name || "",
+                image_url: plant?.image_url || "",
+              },
+            };
+
+            const updatedActivities = [newDiary, ...(activities || [])];
+            setActivities(updatedActivities);
+            console.log(
+              "🚨 activities 업데이트 완료:",
+              updatedActivities.length
+            );
+
+            // lastCheckedImageRef 업데이트
+            if (diary.image_url) {
+              console.log("🚨 lastCheckedImageRef 업데이트:", diary.image_url);
+            }
           }}
         />
       )}
