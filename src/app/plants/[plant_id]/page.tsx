@@ -20,10 +20,6 @@ import {
 } from "@/app/stores/activityStore";
 
 export default function PlantDetailPage() {
-  // 테스트 모드 설정 (여기서 true/false로 제어)
-
-  const IS_TEST_MODE = false; // 테스트 중에는 true, 실제 사용 시에는 false
-
   const params = useParams();
   const router = useRouter();
   const plantId = params.plant_id as string;
@@ -79,7 +75,12 @@ export default function PlantDetailPage() {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-
+        console.log("캐시 조회 성공:", {
+          cacheKey,
+          imageUrl,
+          hasAnalysis: !!parsed.analysis,
+          timestamp: parsed.timestamp,
+        });
         return parsed;
       }
       return null;
@@ -166,41 +167,6 @@ export default function PlantDetailPage() {
     imageUrl: string,
     forceNewAnalysis = false
   ) => {
-    if (IS_TEST_MODE) {
-      console.log("🧪 테스트 모드: Plant.id 분석 API 호출 비활성화됨");
-      console.log("🧪 테스트 모드: 더미 분석 데이터 생성 중...");
-
-      // 더미데이터 생성 (이미지 URL과 다이어리 내용 포함)
-      const dummyAnalysis = {
-        korean_name: "테스트 식물",
-        plant_species: "테스트 종",
-        mapped_species: "몬스테라",
-        health_score: 85,
-        confidence: 90,
-        watering_frequency: "주 2-3회",
-        care_tips: {
-          plant_id_tips: [
-            "테스트 모드: 이미지 분석이 비활성화되어 있습니다",
-            "실제 사용 시에는 Plant.id API가 호출됩니다",
-            "현재 참고 이미지: " + imageUrl,
-            "이미지 URL 길이: " + (imageUrl?.length || 0) + "자",
-          ],
-          openrouter_tips: [
-            "테스트 모드: OpenRouter AI 분석도 비활성화됨",
-            "실제 사용 시 AI 맞춤 관리 팁이 제공됩니다",
-            "참고 이미지: " + imageUrl,
-          ],
-        },
-        suggested_new_types: ["몬스테라", "스킨답서스", "필로덴드론"],
-      };
-
-      setPlantIdAnalysis(dummyAnalysis);
-      setLastAnalyzedImageUrl(imageUrl);
-      setCachedAnalysis(imageUrl, dummyAnalysis);
-      console.log("🧪 테스트 모드: 더미 분석 데이터 생성 완료", dummyAnalysis);
-      return;
-    }
-
     console.log("analyzeWithPlantId 호출됨:", imageUrl);
 
     // 강제 새 분석이 아닐 때만 캐시 확인
@@ -220,7 +186,7 @@ export default function PlantDetailPage() {
       setAnalysisLoading(true);
       console.log("새로운 Plant.id 분석 시작:", imageUrl);
 
-      const response = await fetch("/api/test-plant", {
+      const response = await fetch("/api/plants/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -272,7 +238,7 @@ export default function PlantDetailPage() {
 
       setPlant(plantData);
       // todos + diaries → Activity[] 변환
-      const mergedActivities = [
+      const mergedActivities: Activity[] = [
         ...todosData.map((t) => ({
           ...t,
           type: "todo" as ActivityType,
@@ -281,7 +247,7 @@ export default function PlantDetailPage() {
           ...d,
           type: "diary" as ActivityType,
         })),
-      ] as Activity[]; // 타입 단언으로 문제 해결
+      ];
 
       console.log("병합된 활동들:", mergedActivities);
       setActivities(mergedActivities);
@@ -298,16 +264,21 @@ export default function PlantDetailPage() {
     const updated = await updatePlantTodo(todo.plant_id, todo.id, {
       is_done: !todo.is_done,
     });
-    const updatedActivity = {
+    const updatedActivity: Activity = {
       ...updated,
       type: "todo",
-    } as Activity; // 타입 단언으로 문제 해결
+    };
     const newActivities = activities.map((activity) =>
       activity.id == updated.id && activity.type === "todo"
         ? updatedActivity
         : activity
     );
     setActivities(newActivities);
+
+    // 물주기 todo 완료 시 페이지 재로드하여 최신 정보 반영
+    if (updated.is_done && todo.task_type === "watering") {
+      window.location.reload();
+    }
   };
 
   useEffect(() => {
@@ -612,11 +583,41 @@ export default function PlantDetailPage() {
                           </button>
                         </div>
                         {plantIdAnalysis.suggested_new_types &&
-                          plantIdAnalysis.suggested_new_types.length > 0 && (
+                          plantIdAnalysis.suggested_new_types.length > 0 &&
+                          !plantIdAnalysis.suggested_new_types.every(
+                            (type: string) => type === "기타"
+                          ) && (
                             <p className="text-xs text-gray-500 mt-1">
-                              {plantIdAnalysis.suggested_new_types.join(", ")}
+                              {plantIdAnalysis.suggested_new_types
+                                .filter((type: string) => type !== "기타")
+                                .join(", ")}
                             </p>
                           )}
+                      </div>
+                    )}
+
+                    {/* AI 추천 종류 - Plant.id 분석 결과 기반 */}
+                    {plantIdAnalysis?.plant_category && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">
+                          AI 추천 종류
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-900 font-medium">
+                            {plantIdAnalysis.plant_category}
+                          </span>
+                          <button
+                            onClick={() =>
+                              updatePlantSpecies(plantIdAnalysis.plant_category)
+                            }
+                            className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                          >
+                            적용하기
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Plant.id AI가 분석한 식물 종류입니다
+                        </p>
                       </div>
                     )}
 
@@ -656,69 +657,116 @@ export default function PlantDetailPage() {
                       </div>
                     </div>
 
-                    {/* 적정 물주기 정보 */}
-                    {plantIdAnalysis.watering_frequency && (
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-500 mb-2">
-                          적정 물주기
-                        </label>
-                        <div className="flex items-start space-x-2 text-sm">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                          <p className="text-gray-700">
-                            {plantIdAnalysis.watering_frequency}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 병충해 정보 */}
-                    {plantIdAnalysis.care_tips?.plant_id_tips &&
-                      plantIdAnalysis.care_tips.plant_id_tips.length > 0 && (
+                    {/* 감지된 문제점 */}
+                    {plantIdAnalysis.care_tips?.detected_diseases &&
+                      plantIdAnalysis.care_tips.detected_diseases.length >
+                        0 && (
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-500 mb-2">
                             감지된 문제점
+                            <span className="text-xs text-orange-500 bg-orange-50 px-2 py-1 rounded-full border border-orange-200 ml-2">
+                              ⚠️ 건강 경고
+                            </span>
                           </label>
                           <div className="space-y-2">
-                            {plantIdAnalysis.care_tips.plant_id_tips
-                              .slice(0, 2)
-                              .map((tip: string, index: number) => (
+                            {plantIdAnalysis.care_tips.detected_diseases
+                              .slice(0, 3)
+                              .map((disease: string, index: number) => (
                                 <div
                                   key={index}
-                                  className="flex items-start space-x-2 text-sm"
+                                  className="flex items-start space-x-2 text-sm bg-orange-50 p-3 rounded-lg border border-orange-100"
                                 >
                                   <div className="w-2 h-2 bg-orange-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                                  <p className="text-gray-700">{tip}</p>
+                                  <p className="text-gray-700">{disease}</p>
                                 </div>
                               ))}
                           </div>
                         </div>
                       )}
 
-                    {/* 하드코딩 맞춤 관리 팁 */}
-                    {plantIdAnalysis.care_tips?.hardcoded_tips &&
-                      plantIdAnalysis.care_tips.hardcoded_tips.length > 0 && (
+                    {/* 치료 가이드 */}
+                    {plantIdAnalysis.care_tips?.treatment_info &&
+                      Object.keys(plantIdAnalysis.care_tips.treatment_info)
+                        .length > 0 && (
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-500 mb-2">
-                            맞춤 관리 팁
-                            <span className="text-xs text-green-500 bg-green-50 px-2 py-1 rounded-full border border-green-200 ml-2">
-                              🌱 맞춤 가이드
+                            치료 가이드
+                            <span className="text-xs text-purple-500 bg-purple-50 px-2 py-1 rounded-full border border-purple-200 ml-2">
+                              💊 전문 치료법
                             </span>
                           </label>
                           <div className="space-y-2">
-                            {plantIdAnalysis.care_tips.hardcoded_tips
-                              .slice(0, 6)
-                              .map((tip: string, index: number) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start space-x-2 text-sm"
-                                >
-                                  <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5 flex-shrink-0"></div>
-                                  <p className="text-gray-700">{tip}</p>
-                                </div>
-                              ))}
+                            <div className="flex items-start space-x-2 text-sm bg-purple-50 p-3 rounded-lg border border-purple-100">
+                              <div className="w-2 h-2 bg-purple-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                              <p className="text-gray-700">
+                                <span className="font-medium text-purple-700">
+                                  💊 치료 가이드:
+                                </span>{" "}
+                                {(() => {
+                                  const treatment =
+                                    plantIdAnalysis.care_tips.treatment_info;
+                                  if (
+                                    !treatment ||
+                                    typeof treatment !== "object"
+                                  )
+                                    return "정보 없음";
+
+                                  // 한국어 우선, 영어 fallback
+                                  const lang = treatment.ko || treatment.en;
+                                  if (!lang) return "정보 없음";
+
+                                  const tips = [];
+                                  if (lang.chemical?.length > 0) {
+                                    tips.push(
+                                      `💊 화학적 치료: ${lang.chemical[0]}`
+                                    );
+                                  }
+                                  if (lang.biological?.length > 0) {
+                                    tips.push(
+                                      `🌱 생물학적 치료: ${lang.biological[0]}`
+                                    );
+                                  }
+                                  if (lang.prevention?.length > 0) {
+                                    tips.push(
+                                      `🛡️ 예방법: ${lang.prevention[0]}`
+                                    );
+                                  }
+
+                                  return tips.length > 0
+                                    ? tips.join(" | ")
+                                    : "정보 없음";
+                                })()}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       )}
+
+                    {/* 맞춤 관리 팁 */}
+                    {plantIdAnalysis.care_tips?.plant_details?.length > 0 && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-500 mb-2">
+                          맞춤 관리 팁
+                          <span className="text-xs text-green-500 bg-green-50 px-2 py-1 rounded-full border border-green-200 ml-2">
+                            🌱 맞춤 가이드
+                          </span>
+                        </label>
+                        <div className="space-y-2">
+                          {/* Plant.id에서 생성된 관리 팁 */}
+                          {plantIdAnalysis.care_tips.plant_details.map(
+                            (tip: string, index: number) => (
+                              <div
+                                key={`tip-${index}`}
+                                className="flex items-start space-x-2 text-sm bg-green-50 p-3 rounded-lg border border-green-100"
+                              >
+                                <div className="w-2 h-2 bg-green-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                                <p className="text-gray-700">{tip}</p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -760,7 +808,7 @@ export default function PlantDetailPage() {
                         ? "bg-green-50 border-green-200"
                         : "bg-gray-50 border-gray-200"
                     }`}
-                    onClick={() => handleTodoClick(todo as PlantTodo)}
+                    onClick={() => handleTodoClick(todo)}
                   >
                     <div className="flex items-center justify-between gap-2 ">
                       <div className="flex w-full gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full">
@@ -782,7 +830,7 @@ export default function PlantDetailPage() {
                             {todo.task_type}
                           </p>
                           <p className="text-sm text-gray-500">
-                            마감일: {formatDate(todo.due_date || "")}
+                            마감일: {formatDate(todo.due_date)}
                           </p>
                         </div>
                       </div>
@@ -828,7 +876,7 @@ export default function PlantDetailPage() {
                           ? "bg-green-50 border-green-200"
                           : "bg-gray-50 border-gray-200"
                       }`}
-                      onClick={() => handleTodoClick(activity as PlantTodo)}
+                      onClick={() => handleTodoClick(activity)}
                     >
                       <div className="flex items-center justify-between gap-2 ">
                         <div className="flex w-full gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full">
@@ -850,8 +898,7 @@ export default function PlantDetailPage() {
                               {activity.task_type}
                             </p>
                             <p className="text-sm text-gray-500">
-                              완료일:{" "}
-                              {formatDateTime(activity.executed_at || "")}
+                              완료일: {formatDateTime(activity.executed_at)}
                             </p>
                           </div>
                         </div>
@@ -895,6 +942,7 @@ export default function PlantDetailPage() {
       {isModalOpen && (
         <PlantDiaryModal
           date={new Date()}
+          preselectedPlantId={plantId}
           onClose={() => {
             setIsModalOpen(false);
             // 모달 닫힌 후 데이터 새로고침
@@ -902,7 +950,6 @@ export default function PlantDetailPage() {
           }}
           onDiaryAdded={(diary) => {
             console.log("🚨 onDiaryAdded 호출됨:", diary);
-            console.log("🚨 IS_TEST_MODE:", IS_TEST_MODE);
             console.log("🚨 diary.image_url:", diary.image_url);
             console.log("🚨 diary.image_url 타입:", typeof diary.image_url);
             console.log("🚨 diary.image_url 길이:", diary.image_url?.length);
@@ -945,7 +992,7 @@ export default function PlantDetailPage() {
 
             // lastCheckedImageRef 업데이트
             if (diary.image_url) {
-              console.log("🚨 lastCheckedImageRef 업데이트:", diary.image_url);
+              console.log(" lastCheckedImageRef 업데이트:", diary.image_url);
             }
           }}
         />
