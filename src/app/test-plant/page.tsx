@@ -98,51 +98,23 @@ export default function TestPlant() {
   ];
 
   const wateringOptions = [
-    "주 1회",
+    "매일",
+    "2-3일에 한 번",
     "주 2회",
-    "주 3회",
-    "주 1-2회",
-    "주 2-3회",
-    "2주에 1회",
+    "주 1회",
+    "10일에 한 번",
+    "2주에 한 번",
     "월 1회",
-    "월 2회",
-    "계절에 따라",
+    "거의 필요 없음",
   ];
 
-  const handlePlantChange = (plantValue: string) => {
-    const selected = plantOptions.find((p) => p.value === plantValue);
-    setTestData((prev) => ({
-      ...prev,
-      plantName: plantValue,
-      koreanName: selected?.korean || plantValue,
-    }));
-  };
-
-  const handleHealthChange = (healthValue: string) => {
-    const selected = healthOptions.find((h) => h.value === healthValue);
-    setTestData((prev) => ({
-      ...prev,
-      healthStatus: healthValue,
-      healthProbability: selected?.probability || 50,
-    }));
-  };
-
-  const handleDiseaseToggle = (disease: string) => {
-    setTestData((prev) => ({
-      ...prev,
-      diseases: prev.diseases.includes(disease)
-        ? prev.diseases.filter((d) => d !== disease)
-        : [...prev.diseases, disease],
-    }));
-  };
-
-  const handleTest = async () => {
+  // 테스트 실행 함수
+  const runTest = async () => {
     setIsLoading(true);
     setError("");
     setTips([]);
 
     try {
-      // OpenRouter API 직접 테스트
       const response = await fetch("/api/test-openrouter", {
         method: "POST",
         headers: {
@@ -152,197 +124,219 @@ export default function TestPlant() {
       });
 
       if (!response.ok) {
-        throw new Error("API 호출 실패");
+        throw new Error(`API 오류: ${response.status}`);
       }
 
-      const result: OpenRouterTips = await response.json();
-      setTips(result.additional_care_tips || []);
-    } catch (error) {
-      console.error("OpenRouter 테스트 실패:", error);
-      setError("OpenRouter 테스트 중 오류가 발생했습니다.");
+      const result = await response.json();
+      setTips(result.tips || []);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            🤖 OpenRouter AI 테스트
-          </h1>
-          <p className="text-gray-600">
-            다양한 식물과 상태를 시뮬레이션하여 OpenRouter AI의 관리 팁을
-            테스트해보세요
-          </p>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-center mb-8">식물 관리 테스트</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* 테스트 설정 패널 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                ⚙️ 테스트 설정
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* 식물 선택 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  식물 종류
-                </label>
-                <select
-                  value={testData.plantName}
-                  onChange={(e) => handlePlantChange(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {plantOptions.map((plant) => (
-                    <option key={plant.value} value={plant.value}>
-                      {plant.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 건강 상태 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  건강 상태
-                </label>
-                <select
-                  value={testData.healthStatus}
-                  onChange={(e) => handleHealthChange(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {healthOptions.map((health) => (
-                    <option key={health.value} value={health.value}>
-                      {health.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 물주기 정보 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  적정 물주기
-                </label>
-                <select
-                  value={testData.wateringInfo}
-                  onChange={(e) =>
-                    setTestData((prev) => ({
-                      ...prev,
-                      wateringInfo: e.target.value,
-                    }))
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {wateringOptions.map((watering) => (
-                    <option key={watering} value={watering}>
-                      {watering}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 병충해 정보 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  감지된 문제점 (다중 선택 가능)
-                </label>
-                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
-                  {diseaseOptions.map((disease) => (
-                    <label key={disease} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={testData.diseases.includes(disease)}
-                        onChange={() => handleDiseaseToggle(disease)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm">{disease}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* 테스트 버튼 */}
-              <Button
-                onClick={handleTest}
-                disabled={isLoading}
-                className="w-full bg-purple-600 hover:bg-purple-700"
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* 테스트 데이터 입력 폼 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>테스트 데이터 설정</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 식물 종류 선택 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                식물 종류
+              </label>
+              <select
+                value={testData.plantName}
+                onChange={(e) => {
+                  const selected = plantOptions.find(
+                    (opt) => opt.value === e.target.value
+                  );
+                  setTestData({
+                    ...testData,
+                    plantName: e.target.value,
+                    koreanName: selected?.korean || "",
+                  });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                {isLoading ? "테스트 중..." : "🤖 OpenRouter AI 테스트"}
-              </Button>
+                {plantOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {error && <div className="text-red-600 text-sm">{error}</div>}
-            </CardContent>
-          </Card>
+            {/* 건강 상태 선택 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                건강 상태
+              </label>
+              <select
+                value={testData.healthStatus}
+                onChange={(e) => {
+                  const selected = healthOptions.find(
+                    (opt) => opt.value === e.target.value
+                  );
+                  setTestData({
+                    ...testData,
+                    healthStatus: e.target.value,
+                    healthProbability: selected?.probability || 80,
+                  });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {healthOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* 테스트 결과 패널 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                📋 테스트 결과
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* 현재 설정 요약 */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">현재 설정</h3>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <div>🌱 식물: {testData.koreanName}</div>
-                  <div>💪 건강도: {testData.healthProbability}%</div>
-                  <div>💧 물주기: {testData.wateringInfo}</div>
-                  <div>
-                    ⚠️ 문제점:{" "}
-                    {testData.diseases.length > 0
-                      ? testData.diseases.join(", ")
-                      : "없음"}
-                  </div>
-                </div>
+            {/* 질병 선택 (다중 선택) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                감지된 질병/문제
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {diseaseOptions.map((disease) => (
+                  <label key={disease} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={testData.diseases.includes(disease)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTestData({
+                            ...testData,
+                            diseases: [...testData.diseases, disease],
+                          });
+                        } else {
+                          setTestData({
+                            ...testData,
+                            diseases: testData.diseases.filter(
+                              (d) => d !== disease
+                            ),
+                          });
+                        }
+                      }}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700">{disease}</span>
+                  </label>
+                ))}
               </div>
+            </div>
 
-              {/* AI 관리 팁 결과 */}
-              {isLoading && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                  <span className="ml-3 text-gray-600">AI가 분석 중...</span>
-                </div>
-              )}
+            {/* 물주기 정보 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                물주기 정보
+              </label>
+              <select
+                value={testData.wateringInfo}
+                onChange={(e) =>
+                  setTestData({ ...testData, wateringInfo: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {wateringOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {tips.length > 0 && (
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                    🤖 OpenRouter AI 관리 팁
-                    <span className="text-xs text-purple-500 bg-purple-50 px-2 py-1 rounded-full border border-purple-200 ml-2">
-                      맞춤형 분석
-                    </span>
-                  </h3>
-                  <div className="space-y-3">
-                    {tips.map((tip, index) => (
-                      <div key={index} className="flex items-start space-x-3">
-                        <div className="w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 mt-0.5">
-                          {index + 1}
-                        </div>
-                        <p className="text-gray-700 text-sm leading-relaxed">
-                          {tip}
-                        </p>
-                      </div>
-                    ))}
+            {/* 테스트 실행 버튼 */}
+            <Button
+              onClick={runTest}
+              disabled={isLoading}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+            >
+              {isLoading ? "테스트 실행 중..." : "OpenRouter 테스트 실행"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 테스트 결과 표시 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>테스트 결과</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+
+            {tips.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg text-gray-800">
+                  생성된 관리 팁 ({tips.length}개)
+                </h3>
+                {tips.map((tip, index) => (
+                  <div
+                    key={index}
+                    className="p-3 bg-green-50 border border-green-200 rounded-lg"
+                  >
+                    <p className="text-sm text-gray-700">{tip}</p>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            )}
 
-              {!isLoading && tips.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  위 설정으로 테스트를 시작해보세요!
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            {!isLoading && !error && tips.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                테스트를 실행하면 여기에 결과가 표시됩니다.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* 현재 설정된 테스트 데이터 표시 */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>현재 테스트 데이터</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="font-medium">식물명:</span> {testData.plantName}
+            </div>
+            <div>
+              <span className="font-medium">한국어명:</span>{" "}
+              {testData.koreanName}
+            </div>
+            <div>
+              <span className="font-medium">건강상태:</span>{" "}
+              {testData.healthStatus} ({testData.healthProbability}%)
+            </div>
+            <div>
+              <span className="font-medium">감지된 질병:</span>{" "}
+              {testData.diseases.length > 0
+                ? testData.diseases.join(", ")
+                : "없음"}
+            </div>
+            <div>
+              <span className="font-medium">물주기:</span>{" "}
+              {testData.wateringInfo}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+

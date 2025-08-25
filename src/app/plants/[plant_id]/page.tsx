@@ -79,12 +79,7 @@ export default function PlantDetailPage() {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-        console.log("캐시 조회 성공:", {
-          cacheKey,
-          imageUrl,
-          hasAnalysis: !!parsed.analysis,
-          timestamp: parsed.timestamp,
-        });
+
         return parsed;
       }
       return null;
@@ -277,7 +272,7 @@ export default function PlantDetailPage() {
 
       setPlant(plantData);
       // todos + diaries → Activity[] 변환
-      const mergedActivities: Activity[] = [
+      const mergedActivities = [
         ...todosData.map((t) => ({
           ...t,
           type: "todo" as ActivityType,
@@ -286,7 +281,7 @@ export default function PlantDetailPage() {
           ...d,
           type: "diary" as ActivityType,
         })),
-      ];
+      ] as Activity[]; // 타입 단언으로 문제 해결
 
       console.log("병합된 활동들:", mergedActivities);
       setActivities(mergedActivities);
@@ -303,10 +298,10 @@ export default function PlantDetailPage() {
     const updated = await updatePlantTodo(todo.plant_id, todo.id, {
       is_done: !todo.is_done,
     });
-    const updatedActivity: Activity = {
+    const updatedActivity = {
       ...updated,
       type: "todo",
-    };
+    } as Activity; // 타입 단언으로 문제 해결
     const newActivities = activities.map((activity) =>
       activity.id == updated.id && activity.type === "todo"
         ? updatedActivity
@@ -765,7 +760,7 @@ export default function PlantDetailPage() {
                         ? "bg-green-50 border-green-200"
                         : "bg-gray-50 border-gray-200"
                     }`}
-                    onClick={() => handleTodoClick(todo)}
+                    onClick={() => handleTodoClick(todo as PlantTodo)}
                   >
                     <div className="flex items-center justify-between gap-2 ">
                       <div className="flex w-full gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full">
@@ -787,7 +782,7 @@ export default function PlantDetailPage() {
                             {todo.task_type}
                           </p>
                           <p className="text-sm text-gray-500">
-                            마감일: {formatDate(todo.due_date)}
+                            마감일: {formatDate(todo.due_date || "")}
                           </p>
                         </div>
                       </div>
@@ -833,7 +828,7 @@ export default function PlantDetailPage() {
                           ? "bg-green-50 border-green-200"
                           : "bg-gray-50 border-gray-200"
                       }`}
-                      onClick={() => handleTodoClick(activity)}
+                      onClick={() => handleTodoClick(activity as PlantTodo)}
                     >
                       <div className="flex items-center justify-between gap-2 ">
                         <div className="flex w-full gap-4 bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full">
@@ -855,7 +850,8 @@ export default function PlantDetailPage() {
                               {activity.task_type}
                             </p>
                             <p className="text-sm text-gray-500">
-                              완료일: {formatDateTime(activity.executed_at)}
+                              완료일:{" "}
+                              {formatDateTime(activity.executed_at || "")}
                             </p>
                           </div>
                         </div>
@@ -899,7 +895,6 @@ export default function PlantDetailPage() {
       {isModalOpen && (
         <PlantDiaryModal
           date={new Date()}
-          preselectedPlantId={plantId}
           onClose={() => {
             setIsModalOpen(false);
             // 모달 닫힌 후 데이터 새로고침
