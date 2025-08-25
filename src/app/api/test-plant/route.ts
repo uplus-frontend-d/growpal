@@ -563,48 +563,132 @@ function mapPlantIdToSpecies(
 
 // OpenRouter 함수 제거됨 - 하드코딩된 팁으로 대체
 
+function generateBasicCareTips(plantName: string, topResults: any[]) {
+  // topResults가 undefined인 경우 안전하게 처리
+  if (!topResults || !Array.isArray(topResults)) {
+    console.log(
+      "generateBasicCareTips: topResults가 유효하지 않습니다:",
+      topResults
+    );
+    topResults = [];
+  }
 
-// 건강 상태 분석
-function analyzeHealth(health: any) {
-  if (!health || !health.is_healthy) {
+  const confidence = topResults[0]?.probability || 0;
+  const alternativePlants = topResults
+    .slice(1)
+    .map(
+      (result) =>
+        `${result.plant_name} (${Math.round(result.probability * 100)}%)`
+    )
+    .join(", ");
+
+  console.log(
+    `식물 분석: ${plantName}, 신뢰도: ${Math.round(confidence * 100)}%`
+  );
+  if (confidence < 0.5) {
+    console.log(`대안 식물: ${alternativePlants}`);
+  }
+
+  // 식물 이름에 따른 기본 관리 팁
+  const name = plantName.toLowerCase();
+
+  // 화분/용기 관련 라벨이 있는 경우
+  if (
+    name.includes("pot") ||
+    name.includes("vase") ||
+    name.includes("container") ||
+    name.includes("flowerpot")
+  ) {
     return {
-      is_healthy: false,
-      health_probability: 0,
-      issues: health?.diseases || [],
+      watering_frequency: "1주일에 1-2회",
+      care_tips: [
+        "토양이 마르면 물을 주세요",
+        "밝은 간접광을 제공하세요",
+        "잎을 정기적으로 닦아주세요",
+        "통풍이 잘 되는 곳에 두세요",
+      ],
     };
   }
 
+  // 기본 관리 팁 (모든 식물에 적용)
   return {
-    is_healthy: true,
-    health_probability: health.probability || 100,
-    issues: [],
+    watering_frequency: "일주일에 1-2회",
+    care_tips: [
+      "정기적으로 물을 주세요",
+      "적절한 햇빛을 제공하세요",
+      "잎을 깨끗하게 유지하세요",
+      "식물의 상태를 주기적으로 관찰하세요",
+    ],
   };
 }
 
-// 질병 분석
-function analyzeDiseases(health: any) {
-  if (!health || !health.diseases) {
-    return [];
+function extractTipsFromText(text: string, plantName: string) {
+  // 텍스트에서 팁 추출 로직
+  const tips = [];
+  const sentences = text.split(/[.!?]/).filter((s) => s.trim().length > 5);
+
+  for (const sentence of sentences.slice(0, 4)) {
+    const cleanTip = sentence.trim().replace(/^[•\-\*]\s*/, "");
+    if (cleanTip.length > 3) {
+      tips.push(cleanTip);
+    }
   }
 
-  return health.diseases.map((disease: any) => ({
-    name: disease.name || "Unknown Disease",
-    probability: disease.probability || 0,
-    similar_images: disease.similar_images || [],
-  }));
-}
-
-// 관리 정보 추출
-function extractCareInfo(suggestion: any) {
-  const care = suggestion.plant_details || {};
+  // 기본 팁이 부족한 경우 추가
+  while (tips.length < 4) {
+    tips.push("식물의 상태를 주기적으로 관찰하세요");
+  }
 
   return {
-    common_names: care.common_names || [],
-    care_instructions: care.care_instructions || {},
-    watering: care.watering || {},
-    treatment: care.treatment || {},
-    description: care.description || "",
+    watering_frequency: "일주일에 1-2회",
+    care_tips: tips.slice(0, 4),
   };
+}
+
+function generateDetailedAnalysis(
+  plantName: string,
+  confidence: number,
+  topResults: any[],
+  characteristics: any
+): string {
+  // topResults가 undefined인 경우 안전하게 처리
+  if (!topResults || !Array.isArray(topResults)) {
+    console.log(
+      "generateDetailedAnalysis: topResults가 유효하지 않습니다:",
+      topResults
+    );
+    topResults = [];
+  }
+
+  const confidenceLevel =
+    confidence >= 80
+      ? "매우 높음"
+      : confidence >= 60
+      ? "높음"
+      : confidence >= 40
+      ? "보통"
+      : "낮음";
+
+  const alternativePlants = topResults
+    .slice(1)
+    .map(
+      (result) =>
+        `${result.plant_name} (${Math.round(result.probability * 100)}%)`
+    )
+    .join(", ");
+
+  return `이 식물은 ${plantName}로 분석되었습니다. 분석 신뢰도는 ${confidence}% (${confidenceLevel})입니다.
+
+${
+  confidence < 50
+    ? `⚠️ 주의: 분석 신뢰도가 낮습니다. 다음 식물일 가능성도 있습니다: ${alternativePlants}`
+    : ""
+}
+
+💡 Plant.id 기본 관리법:
+${
+  characteristics.plant_id_tips?.map((tip: string) => `• ${tip}`).join("\n") ||
+  "• 기본 관리 정보가 없습니다"
 }
 
 🤖 하드코딩 관리 팁:
@@ -613,9 +697,26 @@ ${
   "• 추가 관리 팁이 없습니다"
 }
 
-  return nameMap[englishName] || englishName;
+🔍 추가 관찰사항:
+- 식물의 잎 상태를 정기적으로 확인하세요
+- 계절에 따라 관리 방법을 조정하세요
+- 질병이나 해충의 징후가 있는지 주의 깊게 관찰하세요
+${
+  confidence < 60
+    ? "- 분석 결과가 불확실하므로 식물의 실제 상태를 더 주의 깊게 관찰하세요"
+    : ""
 }
 
+이 분석 결과를 바탕으로 식물을 건강하게 키우실 수 있을 것입니다.`;
+}
+
+function determineGrowthStatus(healthScore: number): string {
+  if (healthScore >= 8) return "매우 건강함";
+  if (healthScore >= 6) return "건강함";
+  if (healthScore >= 4) return "보통";
+  if (healthScore >= 2) return "주의 필요";
+  return "관리 필요";
+}
 
 // 하드코딩된 관리 팁 생성 함수 (고정 3종류)
 function generateHardcodedTips(
@@ -916,4 +1017,3 @@ function generateDefaultAnalysis(plantName: string, confidence: number) {
       "AI가 식물을 정확히 식별하지 못했습니다. 더 명확하고 선명한 사진을 제공해주세요.",
   };
 }
-
