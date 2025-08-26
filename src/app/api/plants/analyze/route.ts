@@ -39,50 +39,24 @@ export async function POST(req: NextRequest) {
     const base64Image = Buffer.from(imageBuffer).toString("base64");
     console.log("Base64 인코딩 완료");
 
-    // Plant.id API v3로 식물 분석
-    const plantIdResponse = await fetch("https://api.plant.id/v3/identify", {
-      method: "POST",
-      headers: {
-        "Api-Key": process.env.PLANT_ID_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        images: [`data:image/jpeg;base64,${base64Image}`],
-        health: "all", // 건강 상태 평가 포함
-        similar_images: true, // 유사한 이미지 포함
-        plant_details: [
-          "common_names",
-          "url",
-          "description",
-          "description_gpt",
-          "taxonomy",
-          "image",
-          "images",
-          "synonyms",
-          "edible_parts",
-          "propagation_methods",
-          "watering",
-          "best_watering",
-          "best_light_condition",
-          "best_soil_type",
-          "common_uses",
-          "toxicity",
-          "cultural_significance",
-          "gpt",
-        ],
-        disease_details: [
-          "local_name",
-          "description",
-          "url",
-          "treatment",
-          "classification",
-          "common_names",
-          "cause",
-        ],
-        symptoms: true, // 증상 히트맵 및 심각도 점수 포함
-        classification_level: "species", // 종 수준까지 식별
-      }),
-    });
+    // Plant.id API v3로 기본 식별 수행
+    const plantIdResponse = await fetch(
+      "https://plant.id/api/v3/identification",
+      {
+        method: "POST",
+        headers: {
+          "Api-Key": process.env.PLANT_ID_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          images: [`data:image/jpeg;base64,${base64Image}`],
+          health: "all", // 건강 상태 평가 포함
+          similar_images: true, // 유사한 이미지 포함
+          symptoms: true, // 증상 히트맵 및 심각도 점수 포함
+          classification_level: "species", // 종 수준까지 식별
+        }),
+      }
+    );
 
     if (!plantIdResponse.ok) {
       const errorText = await plantIdResponse.text();
@@ -169,7 +143,7 @@ async function analyzeV3Response(response: any) {
   let plantName = topResult?.name || "알 수 없는 식물";
   let confidence = Math.round((topResult?.probability || 0) * 100);
 
-  // 한국어 이름 찾기
+  // 한국어 이름 찾기 (v3에서는 common_names가 제한적일 수 있음)
   let koreanName = plantName;
   if (
     topResult?.details?.common_names &&
@@ -191,14 +165,15 @@ async function analyzeV3Response(response: any) {
   let detectedDiseases: string[] = [];
   let healthDetails = null;
 
-  if (result.health && result.health.is_healthy !== undefined) {
-    const healthProbability = result.health.is_healthy.probability || 0;
+  // 건강 상태 분석 (v3 구조에 맞게 수정)
+  if (result.is_healthy !== undefined) {
+    const healthProbability = result.is_healthy.probability || 0;
     healthScore = Math.max(1, Math.min(10, Math.round(healthProbability * 10)));
     growthStatus = determineGrowthStatus(healthScore);
 
-    // 질병 정보 추출
-    if (result.health.disease && result.health.disease.suggestions) {
-      const significantDiseases = result.health.disease.suggestions
+    // 질병 정보 추출 (v3 구조에 맞게 수정)
+    if (result.disease && result.disease.suggestions) {
+      const significantDiseases = result.disease.suggestions
         .filter((disease: any) => disease.probability > 0.1)
         .slice(0, 3);
 
@@ -222,14 +197,11 @@ async function analyzeV3Response(response: any) {
     }
   }
 
-  // 관리 팁 생성
-  const plantDetails = topResult?.details;
-  const careTips = generateCareTips(
-    plantDetails,
-    plantName,
-    koreanName,
-    healthScore
-  );
+  // 식물 종류 카테고리 판단
+  const plantCategory = getPlantCategory(plantName, koreanName);
+
+  // 관리 팁 생성 (v3 구조에 맞게 수정)
+  const careTips = generateCareTips(plantName, koreanName, healthScore);
 
   // 상세 분석 생성
   const detailedAnalysis = generateDetailedAnalysis(
@@ -243,6 +215,7 @@ async function analyzeV3Response(response: any) {
   const finalResponse = {
     plant_species: plantName,
     korean_name: koreanName,
+    plant_category: plantCategory, // 식물 종류 카테고리 추가
     growth_status: growthStatus,
     health_score: healthScore,
     care_tips: {
@@ -252,12 +225,12 @@ async function analyzeV3Response(response: any) {
     confidence: confidence,
     detailed_analysis: detailedAnalysis,
     health_details: healthDetails, // v3 새로운 기능
-    plant_details: plantDetails, // 상세 식물 정보
   };
 
   console.log("v3 최종 응답 완성:", {
     plant_name: finalResponse.plant_species,
     korean_name: finalResponse.korean_name,
+    plant_category: finalResponse.plant_category,
     health_score: finalResponse.health_score,
     care_tips_count: finalResponse.care_tips.plant_details.length,
     detected_diseases_count: finalResponse.care_tips.detected_diseases.length,
@@ -266,47 +239,64 @@ async function analyzeV3Response(response: any) {
   return finalResponse;
 }
 
-// 관리 팁 생성
+// 관리 팁 생성 (v3 구조에 맞게 수정)
 function generateCareTips(
-  plantDetails: any,
   plantName: string,
   koreanName: string,
   healthScore: number
 ) {
   const tips: string[] = [];
 
-  // 물주기 정보
-  if (plantDetails?.watering) {
-    const watering = plantDetails.watering;
-    if (
-      typeof watering === "object" &&
-      watering.min !== undefined &&
-      watering.max !== undefined
-    ) {
-      tips.push(
-        `💧 ${koreanName} 권장 물주기: 주 ${watering.min}-${watering.max}회`
-      );
-    } else if (typeof watering === "string") {
-      tips.push(`💧 ${koreanName} 물주기: ${watering}`);
-    }
-  }
+  // 식물 종류와 건강 상태에 따른 동적 팁 생성
+  const plantType = getPlantCategory(plantName, koreanName);
 
-  // 조명 조건
-  if (plantDetails?.best_light_condition) {
+  // 첫 번째 팁: 식물종 + 건강 + 물주기
+  if (plantType === "선인장류" || plantType === "다육식물") {
     tips.push(
-      `🌞 ${koreanName} 조명 조건: ${plantDetails.best_light_condition}`
+      `💧 ${koreanName}는 건조한 환경을 좋아합니다. 토양이 완전히 마를 때까지 기다린 후 물을 주세요.`
+    );
+  } else if (plantType === "야자류" || plantType === "관엽식물") {
+    tips.push(
+      `💧 ${koreanName}는 적당한 습도를 유지해야 합니다. 토양이 약간 마르면 물을 주세요.`
+    );
+  } else {
+    tips.push(
+      `💧 ${koreanName}는 정기적인 물주기가 필요합니다. 토양 상태를 확인하여 적절한 시기에 물을 주세요.`
     );
   }
 
-  // 토양 타입
-  if (plantDetails?.best_soil_type) {
-    tips.push(`🌱 ${koreanName} 토양: ${plantDetails.best_soil_type}`);
+  // 두 번째 팁: 건강 + 질병
+  if (healthScore < 4) {
+    tips.push(
+      `⚠️ ${koreanName}의 건강 상태가 좋지 않습니다. 질병이나 해충이 있는지 자세히 관찰해주세요.`
+    );
+  } else if (healthScore < 6) {
+    tips.push(
+      `🌱 ${koreanName}의 건강 상태를 개선하기 위해 적절한 환경 조건을 제공해주세요.`
+    );
+  } else {
+    tips.push(
+      `✅ ${koreanName}의 건강 상태가 양호합니다. 현재 관리 방법을 유지해주세요.`
+    );
   }
 
-  // 관리 팁이 부족하면 기본 팁 추가
-  if (tips.length < 3) {
+  // 세 번째 팁: 건강 + 계절
+  const currentMonth = new Date().getMonth() + 1;
+  if (currentMonth >= 3 && currentMonth <= 5) {
     tips.push(
-      `🌿 ${koreanName}는 정기적인 관찰이 필요합니다. 잎의 색깔과 토양 상태를 확인하세요.`
+      `🌸 봄철 ${koreanName}는 성장기입니다. 적절한 비료와 물을 제공해주세요.`
+    );
+  } else if (currentMonth >= 6 && currentMonth <= 8) {
+    tips.push(
+      `☀️ 여름철 ${koreanName}는 더위에 주의해야 합니다. 통풍과 적절한 그늘을 제공해주세요.`
+    );
+  } else if (currentMonth >= 9 && currentMonth <= 11) {
+    tips.push(
+      `🍂 가을철 ${koreanName}는 성장이 둔화됩니다. 물주기를 줄이고 겨울 준비를 해주세요.`
+    );
+  } else {
+    tips.push(
+      `❄️ 겨울철 ${koreanName}는 휴면기입니다. 물주기를 최소화하고 따뜻한 곳에 보관해주세요.`
     );
   }
 
@@ -379,11 +369,108 @@ function generateDetailedAnalysis(
   return analysis;
 }
 
+// 식물 종류 카테고리 매핑 함수 (도트 이미지와 연계)
+function getPlantCategory(plantName: string, koreanName: string): string {
+  const lowerPlantName = plantName.toLowerCase();
+  const lowerKoreanName = koreanName.toLowerCase();
+
+  // 선인장류
+  if (
+    lowerPlantName.includes("cactus") ||
+    lowerPlantName.includes("cereus") ||
+    lowerPlantName.includes("echinopsis") ||
+    lowerPlantName.includes("carnegiea") ||
+    lowerPlantName.includes("cephalocereus") ||
+    lowerPlantName.includes("polylophus") ||
+    lowerPlantName.includes("tetetzo") ||
+    lowerPlantName.includes("oxygona") ||
+    lowerPlantName.includes("gigantea") ||
+    lowerKoreanName.includes("선인장")
+  ) {
+    return "선인장류";
+  }
+
+  // 야자류
+  if (
+    lowerPlantName.includes("palm") ||
+    lowerPlantName.includes("chamaedorea") ||
+    lowerPlantName.includes("howea") ||
+    lowerPlantName.includes("dracaena") ||
+    lowerPlantName.includes("reflexa") ||
+    lowerPlantName.includes("fragrans") ||
+    lowerPlantName.includes("elegans") ||
+    lowerPlantName.includes("forsteriana") ||
+    lowerPlantName.includes("indivisa") ||
+    lowerPlantName.includes("australis") ||
+    lowerKoreanName.includes("야자")
+  ) {
+    return "야자류";
+  }
+
+  // 다육식물
+  if (
+    lowerPlantName.includes("succulent") ||
+    lowerPlantName.includes("adenium") ||
+    lowerPlantName.includes("crassula") ||
+    lowerPlantName.includes("echeveria") ||
+    lowerPlantName.includes("obesum") ||
+    lowerPlantName.includes("roseus") ||
+    lowerPlantName.includes("guatemalensis") ||
+    lowerKoreanName.includes("다육")
+  ) {
+    return "다육식물";
+  }
+
+  // 허브류
+  if (
+    lowerPlantName.includes("salvia") ||
+    lowerPlantName.includes("rosemary") ||
+    lowerPlantName.includes("thyme") ||
+    lowerPlantName.includes("basil") ||
+    lowerPlantName.includes("officinalis") ||
+    lowerPlantName.includes("syriaca") ||
+    lowerPlantName.includes("hypogaea") ||
+    lowerKoreanName.includes("허브") ||
+    lowerKoreanName.includes("살비아")
+  ) {
+    return "허브류";
+  }
+
+  // 고사리류
+  if (
+    lowerPlantName.includes("fern") ||
+    lowerPlantName.includes("asplenium") ||
+    lowerPlantName.includes("nephrolepis") ||
+    lowerKoreanName.includes("고사리")
+  ) {
+    return "고사리류";
+  }
+
+  // 관엽식물
+  if (
+    lowerPlantName.includes("philodendron") ||
+    lowerPlantName.includes("monstera") ||
+    lowerPlantName.includes("ficus") ||
+    lowerPlantName.includes("calathea") ||
+    lowerPlantName.includes("actinophyllum") ||
+    lowerPlantName.includes("zamiifolia") ||
+    lowerPlantName.includes("comosum") ||
+    lowerPlantName.includes("australis") ||
+    lowerKoreanName.includes("관엽")
+  ) {
+    return "관엽식물";
+  }
+
+  // 기타 (수생식물류 포함)
+  return "기타";
+}
+
 // 기본 분석 생성
 function generateDefaultAnalysis(plantName: string, confidence: number) {
   return {
     plant_species: plantName,
     korean_name: plantName,
+    plant_category: "기타", // 기본 카테고리 추가
     growth_status: "알 수 없음",
     health_score: 0,
     care_tips: {
