@@ -33,25 +33,27 @@ export async function POST(
       return NextResponse.json({ error: "Login failed" }, { status: 401 });
     }
 
-    // users 테이블에서 사용자 정보 가져오기
+    // users 테이블에서 사용자 정보 가져오기 (보안 검증)
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("*")
       .eq("id", authData.user.id)
       .single();
 
-    if (userError) {
-      console.error("사용자 데이터 조회 실패:", userError);
-      return NextResponse.json(
-        { error: "User data not found" },
-        { status: 404 }
-      );
-    }
+    // users 테이블에 사용자가 없으면 회원탈퇴된 계정으로 판단
+    if (userError || !userData) {
+      console.error("회원탈퇴된 계정 로그인 시도:", {
+        userId: authData.user.id,
+        email: authData.user.email,
+        error: userError?.message,
+      });
 
-    if (!userData) {
+      // Supabase Auth 세션도 종료
+      await supabase.auth.signOut();
+
       return NextResponse.json(
-        { error: "User data not found" },
-        { status: 404 }
+        { error: "회원탈퇴된 계정입니다. 다시 가입해주세요." },
+        { status: 403 }
       );
     }
 

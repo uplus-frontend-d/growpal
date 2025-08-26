@@ -63,65 +63,36 @@ export function useUserData() {
         }
 
         if (authData.user) {
-          const currentProvider =
-            authData.user.app_metadata?.provider || "email";
+          // auth user ID를 사용하여 users 테이블에서 직접 조회
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", authData.user.id)
+            .single();
 
-          // 이메일과 provider 조합으로 사용자 검색
-          let existingUser = null;
+          // users 테이블에 사용자가 없으면 회원탈퇴된 계정으로 판단
+          if (userError || !userData) {
+            console.error("회원탈퇴된 계정 사용자 데이터 조회 시도:", {
+              userId: authData.user.id,
+              email: authData.user.email,
+              error: userError?.message,
+            });
 
-          if (authData.user.email) {
-            // 이메일로 모든 사용자 조회 (여러 행이 반환될 수 있음)
-            const { data: emailUsers, error: emailError } = await supabase
-              .from("users")
-              .select("*")
-              .eq("email", authData.user.email);
-
-            if (!emailError && emailUsers && emailUsers.length > 0) {
-              // 같은 이메일과 provider를 가진 사용자 찾기
-              existingUser = emailUsers.find(
-                (user) =>
-                  user.email === authData.user.email &&
-                  user.provider === currentProvider
-              );
-            }
-          }
-
-          // 사용자가 존재하지 않으면 세션 클리어
-          if (!existingUser) {
-            await supabase.auth.signOut();
-            clearUser();
-            setLoading(false);
-            return {
-              success: false,
-              error: "사용자 데이터가 없습니다. 다시 로그인해주세요.",
-            };
-          }
-
-          // Provider 일치 확인 (이미 위에서 확인했지만 추가 검증)
-          if (existingUser.provider !== currentProvider) {
             // 세션 클리어
             await supabase.auth.signOut();
             clearUser();
             setLoading(false);
 
-            // Provider 이름 추출
-            let providerName = "이메일";
-            if (existingUser.provider.includes("google")) {
-              providerName = "구글";
-            } else if (existingUser.provider.includes("github")) {
-              providerName = "GitHub";
-            }
-
             return {
               success: false,
-              error: `이미 '${providerName}'으로 가입하셨습니다. 같은 계정으로 로그인해주세요.`,
+              error: "회원탈퇴된 계정입니다. 다시 가입해주세요.",
             };
           }
 
           // 기존 사용자 데이터 설정
-          setUser(existingUser);
+          setUser(userData);
           setLoading(false);
-          return { success: true, user: existingUser };
+          return { success: true, user: userData };
         }
 
         clearUser();

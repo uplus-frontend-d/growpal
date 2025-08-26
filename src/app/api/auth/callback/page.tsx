@@ -13,6 +13,7 @@ export default function AuthCallback() {
   const [provider, setProvider] = useState<string | null>(null);
 
   // OAuth 사용자 데이터 처리 함수
+
   const handleOAuthUserData = async (authUser: any, authProvider: string) => {
     try {
       // 1. 이메일과 provider 조합으로 기존 사용자 검색
@@ -37,43 +38,23 @@ export default function AuthCallback() {
       if (existingUser) {
         // 같은 provider로 로그인하는 경우는 정상 처리
         if (existingUser.provider === authProvider) {
-          return;
+          return existingUser;
         }
-        // 다른 provider로 로그인 시도하는 경우 - 새로운 사용자로 생성
+
+        // 다른 provider로 로그인 시도하는 경우 - 거부
+        throw new Error(
+          `이미 ${
+            existingUser.provider === "google"
+              ? "구글"
+              : existingUser.provider === "github"
+              ? "GitHub"
+              : "이메일"
+          }으로 가입하셨습니다. 같은 계정으로 로그인해주세요.`
+        );
       }
 
-      // 3. 새로운 사용자인 경우 생성 (UUID는 Supabase가 자동 생성)
-      let userEmail = authUser.email;
-      if (!userEmail) {
-        if (authProvider === "github") {
-          userEmail = `github_${authUser.id.slice(0, 8)}@temp.com`;
-        } else {
-          userEmail = `user_${authUser.id.slice(0, 8)}@temp.com`;
-        }
-      }
-
-      const insertData = {
-        email: userEmail,
-        created_at: new Date().toISOString(),
-        provider: authProvider,
-      };
-
-      const { data: newUser, error: insertError } = await supabase
-        .from("users")
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (insertError) {
-        // 중복 이메일 에러 처리
-        if (
-          insertError.code === "23505" &&
-          insertError.message.includes("email")
-        ) {
-          throw new Error("이미 해당 이메일로 가입된 계정이 존재합니다.");
-        }
-        throw new Error("사용자 계정 생성 중 오류가 발생했습니다.");
-      }
+      // 3. 기존 사용자가 없는 경우 - 로그인 거부 (자동 생성하지 않음)
+      throw new Error("등록되지 않은 계정입니다. 먼저 회원가입을 해주세요.");
     } catch (error) {
       console.error("OAuth 사용자 데이터 처리 오류:", error);
       throw error;
@@ -168,38 +149,20 @@ export default function AuthCallback() {
           // OAuth 사용자 데이터 직접 처리
           if (authProvider) {
             try {
-              await handleOAuthUserData(session.user, authProvider);
-            } catch (error) {
+              const user = await handleOAuthUserData(
+                session.user,
+                authProvider
+              );
+              // 사용자 데이터를 Zustand store에 설정
+              setUser(user);
+              // 성공 시 메인 페이지로 리다이렉트
+              router.push("/");
+            } catch (error: any) {
               throw error;
             }
           } else {
             throw new Error("인증 제공자를 확인할 수 없습니다.");
           }
-
-          // 새로운 사용자가 생성되었을 가능성이 있으므로 잠시 대기 후 사용자 데이터 처리
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1초 대기
-
-          // 현재 로그인한 사용자의 데이터베이스 정보 가져오기
-          const { data: currentUser, error: userError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("email", session.user.email)
-            .eq("provider", authProvider)
-            .single();
-
-          if (userError) {
-            throw new Error("사용자 데이터를 가져올 수 없습니다.");
-          }
-
-          if (!currentUser) {
-            throw new Error("사용자 데이터가 없습니다. 다시 로그인해주세요.");
-          }
-
-          // 사용자 데이터를 Zustand store에 설정
-          setUser(currentUser);
-
-          // 성공 시 메인 페이지로 리다이렉트
-          router.push("/");
         };
 
         // 타임아웃과 함께 실행
