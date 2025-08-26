@@ -28,7 +28,7 @@ export async function POST(
       );
     }
 
-    // 기존 사용자 확인 (이메일로) - 대소문자 구분
+    // 1. users 테이블에서 기존 사용자 확인 (이메일로) - 대소문자 구분
     const { data: existingUsers, error: checkError } = await supabase
       .from("users")
       .select("*")
@@ -45,7 +45,7 @@ export async function POST(
     // 정확히 일치하는 이메일 찾기 (대소문자 구분)
     const existingUser = existingUsers?.find((user) => user.email === email);
 
-    // 기존 사용자가 있는 경우 - 첫 번째 가입 provider 정보 반환
+    // users 테이블에 기존 사용자가 있는 경우
     if (existingUser) {
       console.log("중복 이메일 가입 시도:", { email, existingUser });
 
@@ -71,13 +71,70 @@ export async function POST(
       );
     }
 
-    // Supabase Auth로 회원가입
+    // 2. Supabase Auth에서 이메일 존재 여부 확인 (탈퇴한 계정 체크)
+    try {
+      // 임시로 로그인 시도하여 계정 존재 여부 확인
+      const { data: authCheckData, error: authCheckError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: "temporary_check_password", // 임시 비밀번호
+        });
+
+      // 이메일이 존재하는 경우 (비밀번호는 틀리지만 이메일은 존재)
+      if (
+        authCheckError &&
+        authCheckError.message.includes("Invalid login credentials")
+      ) {
+        console.error("탈퇴한 계정 재가입 시도:", { email });
+        return NextResponse.json(
+          {
+            error:
+              "이 이메일은 이전에 탈퇴한 계정입니다. 다른 이메일을 사용해주세요.",
+            code: "DELETED_ACCOUNT",
+          },
+          { status: 403 }
+        );
+      }
+
+      // 다른 에러의 경우 (예: 네트워크 오류 등) 계속 진행
+      if (
+        authCheckError &&
+        !authCheckError.message.includes("Invalid login credentials")
+      ) {
+        console.warn("Auth 체크 중 예상치 못한 오류:", authCheckError.message);
+        // 계속 진행 (이메일이 존재하지 않는 것으로 가정)
+      }
+    } catch (authCheckException) {
+      console.warn("Auth 체크 중 예외 발생:", authCheckException);
+      // 예외가 발생해도 계속 진행
+    }
+
+    // 3. Supabase Auth로 회원가입
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
     });
 
     if (authError) {
+      // 이메일이 이미 존재하는 경우
+      if (
+        authError.message.includes("User already registered") ||
+        authError.message.includes("already exists")
+      ) {
+        console.error("탈퇴한 계정 재가입 시도 (Auth 오류):", {
+          email,
+          error: authError.message,
+        });
+        return NextResponse.json(
+          {
+            error:
+              "이 이메일은 이전에 탈퇴한 계정입니다. 다른 이메일을 사용해주세요.",
+            code: "DELETED_ACCOUNT",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
@@ -85,7 +142,7 @@ export async function POST(
       return NextResponse.json({ error: "Sign up failed" }, { status: 400 });
     }
 
-    // users 테이블에 사용자 정보 저장
+    // 4. users 테이블에 사용자 정보 저장
     const { error: insertError } = await supabase.from("users").insert([
       {
         id: authData.user.id,

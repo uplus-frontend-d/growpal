@@ -50,6 +50,7 @@ export default function LoginForm() {
 
       if (authError) {
         setError(authError.message);
+        setLoading(false);
         return;
       }
 
@@ -62,63 +63,43 @@ export default function LoginForm() {
             .eq("id", authData.user.id)
             .single();
 
-          if (userError) {
-            // 사용자가 users 테이블에 없는 경우 새로 생성
-            if (userError.code === "PGRST116") {
-              // 완전히 새로운 사용자인 경우 생성
-              const { data: newUser, error: insertError } = await supabase
-                .from("users")
-                .insert({
-                  id: authData.user.id,
-                  email: authData.user.email,
-                  created_at: new Date().toISOString(),
-                  provider: authData.user.app_metadata?.provider || "email",
-                })
-                .select()
-                .single();
+          if (userError || !userData) {
+            // 사용자가 users 테이블에 없는 경우 로그인 거부
+            console.error("회원탈퇴된 계정 로그인 시도:", {
+              userId: authData.user.id,
+              email: authData.user.email,
+              error: userError?.message,
+            });
 
-              if (insertError) {
-                setError("사용자 계정 생성 중 오류가 발생했습니다.");
-                return;
-              }
+            // Supabase Auth 세션도 종료
+            await supabase.auth.signOut();
 
-              setEmail("");
-              setPassword("");
-              setIsRedirecting(true);
-
-              // Zustand에 사용자 저장
-              await safeGetUserData();
-
-              // 잠시 후 메인 페이지로 이동
-              setTimeout(() => {
-                router.push("/");
-              }, 300);
-            } else {
-              setError("사용자 데이터 조회 중 오류가 발생했습니다.");
-            }
+            setError("회원탈퇴된 계정입니다. 다시 가입해주세요.");
+            setLoading(false);
             return;
           }
 
-          if (userData) {
-            setEmail("");
-            setPassword("");
-            setIsRedirecting(true);
+          // 정상적인 로그인 처리
+          setEmail("");
+          setPassword("");
+          setIsRedirecting(true);
 
-            // Zustand에 사용자 저장
-            await safeGetUserData();
+          // Zustand에 사용자 저장
+          await safeGetUserData();
 
-            // 잠시 후 메인 페이지로 이동 (자연스러운 전환을 위해)
-            setTimeout(() => {
-              router.push("/");
-            }, 300);
-          }
+          // 잠시 후 메인 페이지로 이동 (자연스러운 전환을 위해)
+          setTimeout(() => {
+            router.push("/");
+          }, 300);
         } catch (error) {
+          console.error("사용자 데이터 처리 중 오류:", error);
           setError("사용자 데이터 처리 중 오류가 발생했습니다.");
+          setLoading(false);
         }
       }
     } catch (error) {
+      console.error("로그인 중 오류:", error);
       setError("로그인 중 오류가 발생했습니다.");
-    } finally {
       setLoading(false);
     }
   };
