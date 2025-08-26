@@ -47,8 +47,12 @@ export default function SignUpForm() {
       const data = await response.json();
 
       if (!response.ok) {
+        // 탈퇴한 계정의 재가입 시도인 경우
+        if (response.status === 403 && data.code === "DELETED_ACCOUNT") {
+          setError(data.error);
+        }
         // 이미 가입된 이메일인 경우 provider 정보 포함 에러 메시지 표시
-        if (response.status === 409 && data.provider) {
+        else if (response.status === 409 && data.provider) {
           setError(data.error);
         } else {
           setError(data.error || "회원가입 중 오류가 발생했습니다.");
